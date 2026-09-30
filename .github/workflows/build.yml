@@ -1,4 +1,4 @@
-name: Build APK
+  name: Build APK
 
 on:
   push:
@@ -22,9 +22,6 @@ jobs:
         with:
           flutter-version: '3.24.0'
           channel: 'stable'
-
-      - name: Create Android platform files
-        run: flutter create --platforms=android --project-name=familytreeapp .
 
       - name: Get dependencies
         run: flutter pub get
