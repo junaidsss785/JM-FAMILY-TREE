@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import 'dart:convert';
 import '../models/person.dart';
 import '../data/family_data.dart';
@@ -15,6 +18,7 @@ class FamilyTreeScreen extends StatefulWidget {
 class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   List<Person> members = [];
   bool loading = true;
+  String? highlightId;
   final double boxWidth = 130;
 
   @override
@@ -80,6 +84,144 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     return d;
   }
 
+  // ==================== SEARCH ====================
+  void _showSearchDialog() {
+    final searchCtrl = TextEditingController();
+    List<Person> results = [];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('نام تلاش کریں'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: searchCtrl,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: 'نام لکھیں',
+                    prefixIcon: Icon(Icons.search),
+                  ),
+                  onChanged: (val) {
+                    setDialogState(() {
+                      if (val.trim().isEmpty) {
+                        results = [];
+                      } else {
+                        results = members
+                            .where((m) => m.name
+                                .toLowerCase()
+                                .contains(val.toLowerCase().trim()))
+                            .toList();
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(height: 12),
+                if (results.isNotEmpty)
+                  SizedBox(
+                    height: 200,
+                    child: ListView.builder(
+                      itemCount: results.length,
+                      itemBuilder: (context, i) {
+                        final p = results[i];
+                        return ListTile(
+                          leading: const Icon(Icons.person, color: Colors.teal),
+                          title: Text(p.name),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            setState(() {
+                              highlightId = p.id;
+                            });
+                            Future.delayed(const Duration(seconds: 3), () {
+                              if (mounted) {
+                                setState(() => highlightId = null);
+                              }
+                            });
+                          },
+                        );
+                      },
+                    ),
+                  )
+                else if (searchCtrl.text.trim().isNotEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: Text('کوئی نام نہیں ملا',
+                        style: TextStyle(color: Colors.grey)),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('بند کریں'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==================== PDF ====================
+  Future<void> _generatePdf() async {
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(20),
+        build: (pw.Context context) {
+          return [
+            pw.Header(
+              level: 0,
+              child: pw.Text(
+                'JM Family Tree',
+                style: pw.TextStyle(
+                  fontSize: 24,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.teal800,
+                ),
+              ),
+            ),
+            pw.SizedBox(height: 20),
+            pw.Text('کل افراد: ${members.length}',
+                style: const pw.TextStyle(fontSize: 14)),
+            pw.SizedBox(height: 20),
+            pw.TableHelper.fromTextArray(
+              headers: ['نام', 'والد'],
+              data: members.map((m) {
+                final parent = m.parentId != null
+                    ? members.firstWhere(
+                        (x) => x.id == m.parentId,
+                        orElse: () => Person(id: '', name: '-'),
+                      )
+                    : null;
+                return [m.name, parent?.name ?? '-'];
+              }).toList(),
+              headerStyle: pw.TextStyle(
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColors.white,
+              ),
+              headerDecoration: const pw.BoxDecoration(color: PdfColors.teal800),
+              cellAlignment: pw.Alignment.center,
+              cellStyle: const pw.TextStyle(fontSize: 11),
+            ),
+          ];
+        },
+      ),
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+      name: 'JM_Family_Tree.pdf',
+    );
+  }
+
+  // ==================== ADD/EDIT DIALOG ====================
   void _showAddEditDialog({Person? person}) {
     final nameCtrl = TextEditingController(text: person?.name ?? '');
     String? selectedParent = person?.parentId;
@@ -122,6 +264,8 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                     DropdownMenuItem(value: 'orange', child: Text('نارنجی')),
                     DropdownMenuItem(value: 'purple', child: Text('جامنی')),
                     DropdownMenuItem(value: 'teal', child: Text('ٹیل')),
+                    DropdownMenuItem(value: 'pink', child: Text('گلابی')),
+                    DropdownMenuItem(value: 'amber', child: Text('سنہری')),
                   ],
                   onChanged: (v) => setDialogState(() => selectedColor = v!),
                 ),
@@ -143,6 +287,10 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
               child: const Text('منسوخ'),
             ),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal.shade800,
+                foregroundColor: Colors.white,
+              ),
               onPressed: () {
                 if (nameCtrl.text.trim().isEmpty) return;
                 setState(() {
@@ -190,6 +338,18 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
         title: const Text('JM Family Tree'),
         backgroundColor: Colors.teal.shade800,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            tooltip: 'نام تلاش کریں',
+            onPressed: _showSearchDialog,
+          ),
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf),
+            tooltip: 'PDF بنائیں',
+            onPressed: _generatePdf,
+          ),
+        ],
       ),
       body: InteractiveViewer(
         constrained: false,
@@ -220,6 +380,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                   child: PersonBox(
                     person: m,
                     parent: parent?.id.isEmpty == true ? null : parent,
+                    isHighlighted: highlightId == m.id,
                     onTap: () => _showAddEditDialog(person: m),
                   ),
                 );
@@ -247,8 +408,9 @@ class _LinesPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = Colors.teal.shade800
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
 
     parents.forEach((childId, parentId) {
       if (parentId != null &&
