@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="JM Family Tree"
+        android:label="Mughal Barlas Family Tree"
         android:name="${applicationName}">
         <activity
             android:name=".MainActivity"
