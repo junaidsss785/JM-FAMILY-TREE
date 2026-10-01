@@ -1,5 +1,5 @@
 name: familytreeapp
-description: JM Family Tree Application
+description: Mughal Barlas Family Tree Application
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -14,6 +14,7 @@ dependencies:
   pdf: ^3.10.7
   printing: ^5.11.1
   path_provider: ^2.1.1
+  graphview: ^1.2.0
 
 dev_dependencies:
   flutter_test:
