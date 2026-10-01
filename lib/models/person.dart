@@ -3,12 +3,16 @@ class Person {
   final String name;
   final String? parentId;
   final String? branchColor;
+  final double x;
+  final double y;
 
   Person({
     required this.id,
     required this.name,
     this.parentId,
     this.branchColor,
+    this.x = 0,
+    this.y = 0,
   });
 
   Map<String, dynamic> toJson() => {
@@ -16,6 +20,8 @@ class Person {
         'name': name,
         'parentId': parentId,
         'branchColor': branchColor,
+        'x': x,
+        'y': y,
       };
 
   factory Person.fromJson(Map<String, dynamic> json) => Person(
@@ -23,5 +29,7 @@ class Person {
         name: json['name'] as String,
         parentId: json['parentId'] as String?,
         branchColor: json['branchColor'] as String?,
+        x: (json['x'] ?? 0).toDouble(),
+        y: (json['y'] ?? 0).toDouble(),
       );
 }
