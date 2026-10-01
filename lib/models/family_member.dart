@@ -1,4 +1,4 @@
-class Person {
+class FamilyMember {
   String id;
   String name;
   String fatherName;
@@ -7,7 +7,7 @@ class Person {
   double x;
   double y;
 
-  Person({
+  FamilyMember({
     required this.id,
     required this.name,
     required this.fatherName,
@@ -29,8 +29,8 @@ class Person {
     };
   }
 
-  factory Person.fromMap(Map<String, dynamic> map) {
-    return Person(
+  factory FamilyMember.fromMap(Map<String, dynamic> map) {
+    return FamilyMember(
       id: map['id'] ?? '',
       name: map['name'] ?? '',
       fatherName: map['fatherName'] ?? '',
@@ -41,7 +41,7 @@ class Person {
     );
   }
 
-  Person copyWith({
+  FamilyMember copyWith({
     String? id,
     String? name,
     String? fatherName,
@@ -50,7 +50,7 @@ class Person {
     double? x,
     double? y,
   }) {
-    return Person(
+    return FamilyMember(
       id: id ?? this.id,
       name: name ?? this.name,
       fatherName: fatherName ?? this.fatherName,
