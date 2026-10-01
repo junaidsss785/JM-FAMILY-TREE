@@ -554,9 +554,20 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                         final idx =
                             members.indexWhere((p) => p.id == m.id);
                         if (idx != -1) {
+                          double newX = members[idx].x + dx;
+                          double newY = members[idx].y + dy;
+
+                          // ============ حدود (Boundaries) ============
+                          // باکس اسکرین سے باہر نہ جائے
+                          if (newX < -400) newX = -400;
+                          if (newX > 5000) newX = 5000;
+                          if (newY < -400) newY = -400;
+                          if (newY > 5000) newY = 5000;
+                          // ============================================
+
                           members[idx] = members[idx].copyWith(
-                            x: members[idx].x + dx,
-                            y: members[idx].y + dy,
+                            x: newX,
+                            y: newY,
                           );
                         }
                       });
