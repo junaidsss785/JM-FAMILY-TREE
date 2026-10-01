@@ -1,38 +1,38 @@
 import 'package:flutter/material.dart';
-import '../models/person.dart';
+import '../models/family_member.dart';
 
 class PersonBox extends StatelessWidget {
-  final Person person;
+  final FamilyMember member;
   final VoidCallback onTap;
   final bool isHighlighted;
 
   const PersonBox({
     super.key,
-    required this.person,
+    required this.member,
     required this.onTap,
     this.isHighlighted = false,
   });
 
-  Color _getColor(String? colorName) {
-    switch (colorName) {
-      case 'Blue':
+  Color _getColor(String colorName) {
+    switch (colorName.toLowerCase()) {
+      case 'blue':
         return Colors.blue.shade400;
-      case 'Purple':
-        return Colors.purple.shade400;
-      case 'Green':
-        return Colors.green.shade400;
-      case 'Orange':
-        return Colors.orange.shade400;
-      case 'Red':
+      case 'red':
         return Colors.red.shade400;
+      case 'green':
+        return Colors.green.shade400;
+      case 'orange':
+        return Colors.orange.shade400;
+      case 'purple':
+        return Colors.purple.shade400;
       default:
-        return Colors.grey.shade400;
+        return Colors.teal.shade400;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = _getColor(person.branchColorName);
+    final borderColor = _getColor(member.branchColorName);
 
     return GestureDetector(
       onTap: onTap,
@@ -61,7 +61,7 @@ class PersonBox extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              person.name,
+              member.name,
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
@@ -69,11 +69,11 @@ class PersonBox extends StatelessWidget {
                 color: Colors.black87,
               ),
             ),
-            if (person.fatherName.isNotEmpty &&
-                person.fatherName.toLowerCase() != 'root ancestor') ...[
+            if (member.fatherName.isNotEmpty &&
+                member.fatherName.toLowerCase() != 'root ancestor') ...[
               const SizedBox(height: 3),
               Text(
-                'ولدیت: ${person.fatherName}',
+                'ولدیت: ${member.fatherName}',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 10,
