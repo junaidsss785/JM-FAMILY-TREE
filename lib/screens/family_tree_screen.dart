@@ -7,6 +7,7 @@ import 'dart:convert';
 import '../models/person.dart';
 import '../data/family_data.dart';
 import '../widgets/person_box.dart';
+import 'add_edit_screen.dart';
 
 class FamilyTreeScreen extends StatefulWidget {
   const FamilyTreeScreen({super.key});
@@ -19,7 +20,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   List<Person> members = [];
   bool loading = true;
   String? highlightId;
-  String? draggingId;
 
   @override
   void initState() {
@@ -32,7 +32,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     final data = prefs.getString('family_data');
     if (data != null) {
       final List decoded = jsonDecode(data);
-      members = decoded.map((e) => Person.fromJson(e)).toList();
+      members = decoded.map((e) => Person.fromMap(e)).toList();
     } else {
       members = List.from(initialFamilyMembers);
       await _saveData();
@@ -42,8 +42,33 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
 
   Future<void> _saveData() async {
     final prefs = await SharedPreferences.getInstance();
-    final data = jsonEncode(members.map((e) => e.toJson()).toList());
+    final data = jsonEncode(members.map((e) => e.toMap()).toList());
     await prefs.setString('family_data', data);
+  }
+
+  // ==================== ADD/EDIT ====================
+  void _openAddEditScreen({Person? person}) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => AddEditScreen(
+          memberToEdit: person,
+          allMembers: members,
+          onSave: (savedPerson) {
+            setState(() {
+              final idx =
+                  members.indexWhere((m) => m.id == savedPerson.id);
+              if (idx != -1) {
+                members[idx] = savedPerson;
+              } else {
+                members.add(savedPerson);
+              }
+            });
+            _saveData();
+          },
+        ),
+      ),
+    );
   }
 
   // ==================== SEARCH ====================
@@ -213,7 +238,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
 
               await prefs.setString('master_password', p1);
               final data =
-                  jsonEncode(members.map((e) => e.toJson()).toList());
+                  jsonEncode(members.map((e) => e.toMap()).toList());
               await prefs.setString('master_data', data);
 
               if (mounted) {
@@ -302,7 +327,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
               subtitle: const Text('Save current data as Master'),
               onTap: () async {
                 final data =
-                    jsonEncode(members.map((e) => e.toJson()).toList());
+                    jsonEncode(members.map((e) => e.toMap()).toList());
                 await prefs.setString('master_data', data);
                 if (mounted) {
                   Navigator.pop(ctx);
@@ -325,7 +350,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                   final List decoded = jsonDecode(masterData);
                   setState(() {
                     members =
-                        decoded.map((e) => Person.fromJson(e)).toList();
+                        decoded.map((e) => Person.fromMap(e)).toList();
                   });
                   await _saveData();
                   if (mounted) {
@@ -420,16 +445,10 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
               headers: ['#', 'Name', "Father's Name"],
               data: List.generate(members.length, (i) {
                 final m = members[i];
-                final parent = m.parentId != null
-                    ? members.firstWhere(
-                        (x) => x.id == m.parentId,
-                        orElse: () => Person(id: '', name: '-'),
-                      )
-                    : null;
                 return [
                   '${i + 1}',
                   m.name,
-                  parent?.name ?? '-',
+                  m.fatherName,
                 ];
               }),
               headerStyle: pw.TextStyle(
@@ -468,150 +487,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     );
   }
 
-  // ==================== ADD/EDIT DIALOG ====================
-  void _showAddEditDialog({Person? person}) {
-    final nameCtrl = TextEditingController(text: person?.name ?? '');
-    String? selectedParent = person?.parentId;
-    String selectedColor = person?.branchColor ?? 'teal';
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(person == null ? 'Add New Member' : 'Edit Member'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameCtrl,
-                  decoration:
-                      const InputDecoration(labelText: 'Name / نام'),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: selectedParent,
-                  decoration: const InputDecoration(
-                      labelText: 'Father / والد'),
-                  items: members
-                      .where((m) =>
-                          person == null || m.id != person.id)
-                      .map((m) => DropdownMenuItem(
-                            value: m.id,
-                            child: Text(m.name),
-                          ))
-                      .toList(),
-                  onChanged: (v) =>
-                      setDialogState(() => selectedParent = v),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: selectedColor,
-                  decoration:
-                      const InputDecoration(labelText: 'Branch Color'),
-                  items: const [
-                    DropdownMenuItem(
-                        value: 'red', child: Text('Red / سرخ')),
-                    DropdownMenuItem(
-                        value: 'blue', child: Text('Blue / نیلا')),
-                    DropdownMenuItem(
-                        value: 'green', child: Text('Green / سبز')),
-                    DropdownMenuItem(
-                        value: 'orange',
-                        child: Text('Orange / نارنجی')),
-                    DropdownMenuItem(
-                        value: 'purple',
-                        child: Text('Purple / جامنی')),
-                    DropdownMenuItem(
-                        value: 'teal', child: Text('Teal / ٹیل')),
-                    DropdownMenuItem(
-                        value: 'pink', child: Text('Pink / گلابی')),
-                    DropdownMenuItem(
-                        value: 'amber',
-                        child: Text('Amber / سنہری')),
-                  ],
-                  onChanged: (v) =>
-                      setDialogState(() => selectedColor = v!),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            if (person != null)
-              TextButton(
-                onPressed: () {
-                  setState(() => members
-                      .removeWhere((m) => m.id == person.id));
-                  _saveData();
-                  Navigator.pop(ctx);
-                },
-                child: const Text('Delete',
-                    style: TextStyle(color: Colors.red)),
-              ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal.shade800,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () {
-                if (nameCtrl.text.trim().isEmpty) return;
-                setState(() {
-                  if (person == null) {
-                    // نیا باکس والد کے نیچے بنے گا
-                    double newX = 0;
-                    double newY = 0;
-                    if (selectedParent != null) {
-                      final parent = members.firstWhere(
-                        (m) => m.id == selectedParent,
-                        orElse: () => Person(id: '', name: ''),
-                      );
-                      if (parent.id.isNotEmpty) {
-                        // اسی نسل کے افراد گنیں
-                        final siblings = members
-                            .where((m) => m.parentId == selectedParent)
-                            .toList();
-                        newX = parent.x + (siblings.length * 160) - 80;
-                        newY = parent.y + 150;
-                      }
-                    }
-                    members.add(Person(
-                      id: DateTime.now()
-                          .millisecondsSinceEpoch
-                          .toString(),
-                      name: nameCtrl.text.trim(),
-                      parentId: selectedParent,
-                      branchColor: selectedColor,
-                      x: newX,
-                      y: newY,
-                    ));
-                  } else {
-                    final idx =
-                        members.indexWhere((m) => m.id == person.id);
-                    members[idx] = Person(
-                      id: person.id,
-                      name: nameCtrl.text.trim(),
-                      parentId: selectedParent,
-                      branchColor: selectedColor,
-                      x: person.x,
-                      y: person.y,
-                    );
-                  }
-                });
-                _saveData();
-                Navigator.pop(ctx);
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     if (loading) {
@@ -644,48 +519,45 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
       ),
       body: InteractiveViewer(
         constrained: false,
-        boundaryMargin: const EdgeInsets.all(2000),
-        minScale: 0.1,
+        boundaryMargin: const EdgeInsets.all(3000),
+        minScale: 0.05,
         maxScale: 3.0,
         child: SizedBox(
-          width: 5000,
-          height: 5000,
+          width: 6000,
+          height: 6000,
           child: Stack(
             children: [
-              // لائنیں
+              // لائنیں (CustomPaint)
               CustomPaint(
-                size: const Size(5000, 5000),
+                size: const Size(6000, 6000),
                 painter: _LinesPainter(members: members),
               ),
-              // باکسز
+              // باکسز (Drag & Drop کے لیے)
               ...members.map((m) {
                 return Positioned(
-                  left: m.x + 2500,
-                  top: m.y + 2500,
-                  child: Draggable<String>(
-                    data: m.id,
-                    feedback: Material(
-                      color: Colors.transparent,
-                      child: _buildBox(m, true),
-                    ),
-                    childWhenDragging: Opacity(
-                      opacity: 0.3,
-                      child: _buildBox(m, false),
-                    ),
-                    onDragEnd: (details) {
+                  left: m.x + 500,
+                  top: m.y + 500,
+                  child: GestureDetector(
+                    onPanUpdate: (details) {
                       setState(() {
-                        m = m.copyWith(
-                          x: m.x + details.offset.dx,
-                          y: m.y + details.offset.dy,
-                        );
-                        final idx = members.indexWhere((p) => p.id == m.id);
+                        final idx =
+                            members.indexWhere((p) => p.id == m.id);
                         if (idx != -1) {
-                          members[idx] = m;
+                          members[idx] = m.copyWith(
+                            x: m.x + details.delta.dx,
+                            y: m.y + details.delta.dy,
+                          );
                         }
                       });
+                    },
+                    onPanEnd: (details) {
                       _saveData();
                     },
-                    child: _buildBox(m, false),
+                    child: PersonBox(
+                      person: m,
+                      isHighlighted: highlightId == m.id,
+                      onTap: () => _openAddEditScreen(person: m),
+                    ),
                   ),
                 );
               }).toList(),
@@ -695,25 +567,9 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.teal.shade800,
-        onPressed: () => _showAddEditDialog(),
+        onPressed: () => _openAddEditScreen(),
         child: const Icon(Icons.add, color: Colors.white),
       ),
-    );
-  }
-
-  Widget _buildBox(Person m, bool isDragging) {
-    final parent = m.parentId != null
-        ? members.firstWhere(
-            (x) => x.id == m.parentId,
-            orElse: () => Person(id: '', name: ''),
-          )
-        : null;
-
-    return PersonBox(
-      person: m,
-      parent: parent?.id.isEmpty == true ? null : parent,
-      isHighlighted: highlightId == m.id,
-      onTap: () => _showAddEditDialog(person: m),
     );
   }
 }
@@ -733,20 +589,34 @@ class _LinesPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     for (var child in members) {
-      if (child.parentId == null) continue;
+      if (child.fatherName.isEmpty ||
+          child.fatherName.toLowerCase() == 'root ancestor') {
+        continue;
+      }
+
+      // والد کو تلاش کریں (نام سے)
       final parent = members.firstWhere(
-        (p) => p.id == child.parentId,
-        orElse: () => Person(id: '', name: ''),
+        (p) =>
+            p.name.trim().toLowerCase() ==
+            child.fatherName.trim().toLowerCase(),
+        orElse: () => Person(
+          id: '',
+          name: '',
+          fatherName: '',
+          branchColorName: '',
+          childrenIds: [],
+        ),
       );
+
       if (parent.id.isEmpty) continue;
 
-      // والد کے باکس کا نچلا وسط
-      final pX = parent.x + 2500 + 65;
-      final pY = parent.y + 2500 + 60;
+      // والد کا نچلا وسط (x + 500، y + 500 آفسیٹ کے ساتھ)
+      final pX = parent.x + 500 + 65;
+      final pY = parent.y + 500 + 60;
 
-      // بچے کے باکس کا اوپری وسط
-      final cX = child.x + 2500 + 65;
-      final cY = child.y + 2500;
+      // بیٹے کا اوپری وسط
+      final cX = child.x + 500 + 65;
+      final cY = child.y + 500;
 
       final path = Path();
       path.moveTo(pX, pY);
