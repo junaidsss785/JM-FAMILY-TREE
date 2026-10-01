@@ -20,7 +20,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   List<FamilyMember> members = [];
   bool loading = true;
   String? highlightId;
-  String? draggingId;
 
   @override
   void initState() {
@@ -57,8 +56,8 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
           allMembers: members,
           onSave: (savedMember) {
             setState(() {
-              final idx = members
-                  .indexWhere((m) => m.id == savedMember.id);
+              final idx =
+                  members.indexWhere((m) => m.id == savedMember.id);
               if (idx != -1) {
                 members[idx] = savedMember;
               } else {
@@ -634,7 +633,7 @@ class _DraggableBoxState extends State<_DraggableBox> {
   }
 }
 
-// ==================== LINES PAINTER ====================
+// ==================== LINES PAINTER (سیدھی لائنیں) ====================
 class _LinesPainter extends CustomPainter {
   final List<FamilyMember> members;
 
@@ -677,16 +676,19 @@ class _LinesPainter extends CustomPainter {
       final cX = child.x + 500 + 65;
       final cY = child.y + 500;
 
-      // خوبصورت لائنیں (curved)
-      final midY = (pY + cY) / 2;
-
       final path = Path();
       path.moveTo(pX, pY);
-      path.cubicTo(
-        pX, midY,
-        cX, midY,
-        cX, cY,
-      );
+
+      // اگر بیٹا والد کے سیدھا نیچے ہے تو سیدھی لائن
+      if ((pX - cX).abs() < 10) {
+        path.lineTo(cX, cY);
+      } else {
+        // زاویہ دار لائن (نیچے → افقی → نیچے)
+        final midY = pY + (cY - pY) / 2;
+        path.lineTo(pX, midY);
+        path.lineTo(cX, midY);
+        path.lineTo(cX, cY);
+      }
 
       canvas.drawPath(path, paint);
     }
