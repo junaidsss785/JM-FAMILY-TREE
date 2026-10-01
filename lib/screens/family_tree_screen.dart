@@ -166,11 +166,258 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     );
   }
 
+  // ==================== MASTER BACKUP ====================
+  Future<void> _showMasterBackupDialog() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedPassword = prefs.getString('master_password');
+    final hasMaster = prefs.getString('master_data') != null;
+
+    if (savedPassword == null) {
+      _showSetPasswordDialog(prefs);
+    } else {
+      _showPasswordOptionsDialog(prefs, hasMaster);
+    }
+  }
+
+  // پہلی بار پاسورڈ سیٹ کریں
+  void _showSetPasswordDialog(SharedPreferences prefs) {
+    final passCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.lock_outline, color: Colors.teal),
+            SizedBox(width: 8),
+            Text('Set Master Password'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'یہ پاسورڈ Master Backup کے لیے ہے۔\nیاد رکھیں، بھول گئے تو ریکوری نہیں ہوگی۔',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: passCtrl,
+              obscureText: true,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'New Password',
+                prefixIcon: Icon(Icons.key),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: confirmCtrl,
+              obscureText: true,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Confirm Password',
+                prefixIcon: Icon(Icons.key),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal.shade800,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              final p1 = passCtrl.text.trim();
+              final p2 = confirmCtrl.text.trim();
+              if (p1.isEmpty || p1.length < 4) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Password must be 4+ characters')),
+                );
+                return;
+              }
+              if (p1 != p2) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Passwords do not match')),
+                );
+                return;
+              }
+
+              await prefs.setString('master_password', p1);
+              final data = jsonEncode(members.map((e) => e.toJson()).toList());
+              await prefs.setString('master_data', data);
+
+              if (mounted) {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('✅ Master Backup created successfully!'),
+                    backgroundColor: Colors.teal,
+                  ),
+                );
+              }
+            },
+            child: const Text('Set Default'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // پاسورڈ ڈال کر آپشنز
+  void _showPasswordOptionsDialog(SharedPreferences prefs, bool hasMaster) {
+    final passCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.lock, color: Colors.teal),
+            SizedBox(width: 8),
+            Text('Master Backup'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: passCtrl,
+              obscureText: true,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Password',
+                prefixIcon: Icon(Icons.key),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal.shade800,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              final savedPassword = prefs.getString('master_password');
+              if (passCtrl.text.trim() != savedPassword) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('❌ Wrong password!'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+
+              if (mounted) {
+                Navigator.pop(ctx);
+                _showMasterActionsDialog(prefs, hasMaster);
+              }
+            },
+            child: const Text('Unlock'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Master کے آپشنز
+  void _showMasterActionsDialog(SharedPreferences prefs, bool hasMaster) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Master Backup Options'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.save, color: Colors.teal),
+              title: const Text('Update Master'),
+              subtitle: const Text('Save current data as Master'),
+              onTap: () async {
+                final data =
+                    jsonEncode(members.map((e) => e.toJson()).toList());
+                await prefs.setString('master_data', data);
+                if (mounted) {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('✅ Master updated!'),
+                      backgroundColor: Colors.teal,
+                    ),
+                  );
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.restore, color: Colors.orange),
+              title: const Text('Restore from Master'),
+              subtitle: const Text('Reset to Master backup'),
+              onTap: () async {
+                final masterData = prefs.getString('master_data');
+                if (masterData != null) {
+                  final List decoded = jsonDecode(masterData);
+                  setState(() {
+                    members =
+                        decoded.map((e) => Person.fromJson(e)).toList();
+                  });
+                  await _saveData();
+                  if (mounted) {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('✅ Restored from Master!'),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_forever, color: Colors.red),
+              title: const Text('Remove Master'),
+              subtitle: const Text('Delete Master backup & password'),
+              onTap: () async {
+                await prefs.remove('master_data');
+                await prefs.remove('master_password');
+                if (mounted) {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Master removed!'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ==================== PDF ====================
   Future<void> _generatePdf() async {
     final pdf = pw.Document();
-
-    // Sort members by depth (generation) for better organization
     final sortedMembers = List<Person>.from(members);
     sortedMembers.sort((a, b) {
       final da = _getDepth(a, members);
@@ -185,7 +432,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
         margin: const pw.EdgeInsets.all(30),
         build: (pw.Context context) {
           return [
-            // Title
             pw.Header(
               level: 0,
               child: pw.Column(
@@ -213,8 +459,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
             pw.SizedBox(height: 10),
             pw.Divider(color: PdfColors.teal900, thickness: 2),
             pw.SizedBox(height: 10),
-
-            // Info row
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
@@ -235,8 +479,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
               ],
             ),
             pw.SizedBox(height: 20),
-
-            // Table
             pw.TableHelper.fromTextArray(
               headers: ['#', 'Name', "Father's Name", 'Generation'],
               data: List.generate(sortedMembers.length, (i) {
@@ -263,8 +505,10 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
               headerDecoration: const pw.BoxDecoration(color: PdfColors.teal900),
               cellAlignment: pw.Alignment.centerLeft,
               cellStyle: const pw.TextStyle(fontSize: 10),
-              cellPadding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-              oddRowDecoration: const pw.BoxDecoration(color: PdfColors.grey100),
+              cellPadding:
+                  const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              oddRowDecoration:
+                  const pw.BoxDecoration(color: PdfColors.grey100),
               border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
               columnWidths: {
                 0: const pw.FixedColumnWidth(30),
@@ -273,7 +517,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                 3: const pw.FixedColumnWidth(60),
               },
             ),
-
             pw.SizedBox(height: 20),
             pw.Divider(color: PdfColors.grey400),
             pw.SizedBox(height: 8),
@@ -291,7 +534,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
       ),
     );
 
-    // Show print/save dialog - user can choose page size, printer, or save as PDF
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdf.save(),
       name: 'Mughal_Barlas_Family_Tree.pdf',
@@ -320,7 +562,8 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: selectedParent,
-                  decoration: const InputDecoration(labelText: 'Father / والد'),
+                  decoration:
+                      const InputDecoration(labelText: 'Father / والد'),
                   items: members
                       .where((m) => person == null || m.id != person.id)
                       .map((m) => DropdownMenuItem(
@@ -338,11 +581,14 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                     DropdownMenuItem(value: 'red', child: Text('Red / سرخ')),
                     DropdownMenuItem(value: 'blue', child: Text('Blue / نیلا')),
                     DropdownMenuItem(value: 'green', child: Text('Green / سبز')),
-                    DropdownMenuItem(value: 'orange', child: Text('Orange / نارنجی')),
-                    DropdownMenuItem(value: 'purple', child: Text('Purple / جامنی')),
+                    DropdownMenuItem(
+                        value: 'orange', child: Text('Orange / نارنجی')),
+                    DropdownMenuItem(
+                        value: 'purple', child: Text('Purple / جامنی')),
                     DropdownMenuItem(value: 'teal', child: Text('Teal / ٹیل')),
                     DropdownMenuItem(value: 'pink', child: Text('Pink / گلابی')),
-                    DropdownMenuItem(value: 'amber', child: Text('Amber / سنہری')),
+                    DropdownMenuItem(
+                        value: 'amber', child: Text('Amber / سنہری')),
                   ],
                   onChanged: (v) => setDialogState(() => selectedColor = v!),
                 ),
@@ -357,7 +603,8 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                   _saveData();
                   Navigator.pop(ctx);
                 },
-                child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                child:
+                    const Text('Delete', style: TextStyle(color: Colors.red)),
               ),
             TextButton(
               onPressed: () => Navigator.pop(ctx),
@@ -417,13 +664,18 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
+            icon: const Icon(Icons.lock_outline),
+            tooltip: 'Master Backup',
+            onPressed: _showMasterBackupDialog,
+          ),
+          IconButton(
             icon: const Icon(Icons.search),
             tooltip: 'Search',
             onPressed: _showSearchDialog,
           ),
           IconButton(
             icon: const Icon(Icons.picture_as_pdf),
-            tooltip: 'Generate PDF',
+            tooltip: 'PDF',
             onPressed: _generatePdf,
           ),
         ],
