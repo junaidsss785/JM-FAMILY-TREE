@@ -4,7 +4,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'dart:convert';
-import '../models/person.dart';
+import '../models/family_member.dart';
 import '../data/family_data.dart';
 import '../widgets/person_box.dart';
 import 'add_edit_screen.dart';
@@ -17,9 +17,10 @@ class FamilyTreeScreen extends StatefulWidget {
 }
 
 class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
-  List<Person> members = [];
+  List<FamilyMember> members = [];
   bool loading = true;
   String? highlightId;
+  String? draggingId;
 
   @override
   void initState() {
@@ -32,7 +33,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     final data = prefs.getString('family_data');
     if (data != null) {
       final List decoded = jsonDecode(data);
-      members = decoded.map((e) => Person.fromMap(e)).toList();
+      members = decoded.map((e) => FamilyMember.fromMap(e)).toList();
     } else {
       members = List.from(initialFamilyMembers);
       await _saveData();
@@ -47,21 +48,21 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   }
 
   // ==================== ADD/EDIT ====================
-  void _openAddEditScreen({Person? person}) {
+  void _openAddEditScreen({FamilyMember? member}) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (ctx) => AddEditScreen(
-          memberToEdit: person,
+          memberToEdit: member,
           allMembers: members,
-          onSave: (savedPerson) {
+          onSave: (savedMember) {
             setState(() {
-              final idx =
-                  members.indexWhere((m) => m.id == savedPerson.id);
+              final idx = members
+                  .indexWhere((m) => m.id == savedMember.id);
               if (idx != -1) {
-                members[idx] = savedPerson;
+                members[idx] = savedMember;
               } else {
-                members.add(savedPerson);
+                members.add(savedMember);
               }
             });
             _saveData();
@@ -74,7 +75,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   // ==================== SEARCH ====================
   void _showSearchDialog() {
     final searchCtrl = TextEditingController();
-    List<Person> results = [];
+    List<FamilyMember> results = [];
 
     showDialog(
       context: context,
@@ -116,15 +117,16 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                       itemBuilder: (context, i) {
                         final p = results[i];
                         return ListTile(
-                          leading:
-                              const Icon(Icons.person, color: Colors.teal),
+                          leading: const Icon(Icons.person,
+                              color: Colors.teal),
                           title: Text(p.name),
                           onTap: () {
                             Navigator.pop(ctx);
                             setState(() {
                               highlightId = p.id;
                             });
-                            Future.delayed(const Duration(seconds: 3), () {
+                            Future.delayed(
+                                const Duration(seconds: 3), () {
                               if (mounted) {
                                 setState(() => highlightId = null);
                               }
@@ -225,13 +227,15 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
               if (p1.isEmpty || p1.length < 4) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                      content: Text('Password must be 4+ characters')),
+                      content:
+                          Text('Password must be 4+ characters')),
                 );
                 return;
               }
               if (p1 != p2) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Passwords do not match')),
+                  const SnackBar(
+                      content: Text('Passwords do not match')),
                 );
                 return;
               }
@@ -341,7 +345,8 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.restore, color: Colors.orange),
+              leading:
+                  const Icon(Icons.restore, color: Colors.orange),
               title: const Text('Restore from Master'),
               subtitle: const Text('Reset to Master backup'),
               onTap: () async {
@@ -349,8 +354,9 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                 if (masterData != null) {
                   final List decoded = jsonDecode(masterData);
                   setState(() {
-                    members =
-                        decoded.map((e) => Person.fromMap(e)).toList();
+                    members = decoded
+                        .map((e) => FamilyMember.fromMap(e))
+                        .toList();
                   });
                   await _saveData();
                   if (mounted) {
@@ -366,10 +372,11 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
               },
             ),
             ListTile(
-              leading:
-                  const Icon(Icons.delete_forever, color: Colors.red),
+              leading: const Icon(Icons.delete_forever,
+                  color: Colors.red),
               title: const Text('Remove Master'),
-              subtitle: const Text('Delete Master backup & password'),
+              subtitle:
+                  const Text('Delete Master backup & password'),
               onTap: () async {
                 await prefs.remove('master_data');
                 await prefs.remove('master_password');
@@ -442,13 +449,14 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
             ),
             pw.SizedBox(height: 20),
             pw.TableHelper.fromTextArray(
-              headers: ['#', 'Name', "Father's Name"],
+              headers: ['#', 'Name', "Father's Name", 'Branch'],
               data: List.generate(members.length, (i) {
                 final m = members[i];
                 return [
                   '${i + 1}',
                   m.name,
                   m.fatherName,
+                  m.branchColorName,
                 ];
               }),
               headerStyle: pw.TextStyle(
@@ -459,12 +467,12 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
               headerDecoration:
                   const pw.BoxDecoration(color: PdfColors.teal900),
               cellStyle: const pw.TextStyle(fontSize: 10),
-              cellPadding:
-                  const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              cellPadding: const pw.EdgeInsets.symmetric(
+                  horizontal: 6, vertical: 4),
               oddRowDecoration:
                   const pw.BoxDecoration(color: PdfColors.grey100),
-              border:
-                  pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+              border: pw.TableBorder.all(
+                  color: PdfColors.grey400, width: 0.5),
             ),
             pw.SizedBox(height: 20),
             pw.Center(
@@ -487,6 +495,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     );
   }
 
+  // ==================== BUILD ====================
   @override
   Widget build(BuildContext context) {
     if (loading) {
@@ -532,32 +541,30 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                 size: const Size(6000, 6000),
                 painter: _LinesPainter(members: members),
               ),
-              // باکسز (Drag & Drop کے لیے)
+              // باکسز (Drag & Drop)
               ...members.map((m) {
                 return Positioned(
                   left: m.x + 500,
                   top: m.y + 500,
-                  child: GestureDetector(
-                    onPanUpdate: (details) {
+                  child: _DraggableBox(
+                    member: m,
+                    isHighlighted: highlightId == m.id,
+                    onTap: () => _openAddEditScreen(member: m),
+                    onDragUpdate: (dx, dy) {
                       setState(() {
                         final idx =
                             members.indexWhere((p) => p.id == m.id);
                         if (idx != -1) {
-                          members[idx] = m.copyWith(
-                            x: m.x + details.delta.dx,
-                            y: m.y + details.delta.dy,
+                          members[idx] = members[idx].copyWith(
+                            x: members[idx].x + dx,
+                            y: members[idx].y + dy,
                           );
                         }
                       });
                     },
-                    onPanEnd: (details) {
+                    onDragEnd: () {
                       _saveData();
                     },
-                    child: PersonBox(
-                      person: m,
-                      isHighlighted: highlightId == m.id,
-                      onTap: () => _openAddEditScreen(person: m),
-                    ),
                   ),
                 );
               }).toList(),
@@ -574,9 +581,62 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   }
 }
 
+// ==================== DRAGGABLE BOX ====================
+class _DraggableBox extends StatefulWidget {
+  final FamilyMember member;
+  final bool isHighlighted;
+  final VoidCallback onTap;
+  final Function(double dx, double dy) onDragUpdate;
+  final VoidCallback onDragEnd;
+
+  const _DraggableBox({
+    required this.member,
+    required this.isHighlighted,
+    required this.onTap,
+    required this.onDragUpdate,
+    required this.onDragEnd,
+  });
+
+  @override
+  State<_DraggableBox> createState() => _DraggableBoxState();
+}
+
+class _DraggableBoxState extends State<_DraggableBox> {
+  bool isDragging = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onPanStart: (details) {
+        setState(() => isDragging = true);
+      },
+      onPanUpdate: (details) {
+        widget.onDragUpdate(details.delta.dx, details.delta.dy);
+      },
+      onPanEnd: (details) {
+        setState(() => isDragging = false);
+        widget.onDragEnd();
+      },
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: isDragging ? 1.05 : 1.0,
+        duration: const Duration(milliseconds: 150),
+        child: Material(
+          color: Colors.transparent,
+          child: PersonBox(
+            member: widget.member,
+            isHighlighted: widget.isHighlighted,
+            onTap: widget.onTap,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ==================== LINES PAINTER ====================
 class _LinesPainter extends CustomPainter {
-  final List<Person> members;
+  final List<FamilyMember> members;
 
   _LinesPainter({required this.members});
 
@@ -594,12 +654,11 @@ class _LinesPainter extends CustomPainter {
         continue;
       }
 
-      // والد کو تلاش کریں (نام سے)
       final parent = members.firstWhere(
         (p) =>
             p.name.trim().toLowerCase() ==
             child.fatherName.trim().toLowerCase(),
-        orElse: () => Person(
+        orElse: () => FamilyMember(
           id: '',
           name: '',
           fatherName: '',
@@ -610,19 +669,24 @@ class _LinesPainter extends CustomPainter {
 
       if (parent.id.isEmpty) continue;
 
-      // والد کا نچلا وسط (x + 500، y + 500 آفسیٹ کے ساتھ)
+      // والد کے باکس کا نچلا وسط
       final pX = parent.x + 500 + 65;
       final pY = parent.y + 500 + 60;
 
-      // بیٹے کا اوپری وسط
+      // بیٹے کے باکس کا اوپری وسط
       final cX = child.x + 500 + 65;
       final cY = child.y + 500;
 
+      // خوبصورت لائنیں (curved)
+      final midY = (pY + cY) / 2;
+
       final path = Path();
       path.moveTo(pX, pY);
-      path.lineTo(pX, (pY + cY) / 2);
-      path.lineTo(cX, (pY + cY) / 2);
-      path.lineTo(cX, cY);
+      path.cubicTo(
+        pX, midY,
+        cX, midY,
+        cX, cY,
+      );
 
       canvas.drawPath(path, paint);
     }
