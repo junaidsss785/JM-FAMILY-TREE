@@ -3,10 +3,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:graphview/GraphView.dart';
 import 'dart:convert';
 import '../models/person.dart';
 import '../data/family_data.dart';
+import '../widgets/person_box.dart';
 
 class FamilyTreeScreen extends StatefulWidget {
   const FamilyTreeScreen({super.key});
@@ -19,18 +19,11 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   List<Person> members = [];
   bool loading = true;
   String? highlightId;
-
-  final Graph graph = Graph()..isTree = true;
-  BuchheimWalkerConfiguration builder = BuchheimWalkerConfiguration();
+  String? draggingId;
 
   @override
   void initState() {
     super.initState();
-    builder
-      ..siblingSeparation = 30
-      ..levelSeparation = 80
-      ..subtreeSeparation = 50
-      ..orientation = BuchheimWalkerConfiguration.ORIENTATION_TOP_BOTTOM;
     _loadData();
   }
 
@@ -44,7 +37,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
       members = List.from(initialFamilyMembers);
       await _saveData();
     }
-    _buildGraph();
     setState(() => loading = false);
   }
 
@@ -52,47 +44,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     final prefs = await SharedPreferences.getInstance();
     final data = jsonEncode(members.map((e) => e.toJson()).toList());
     await prefs.setString('family_data', data);
-  }
-
-  void _buildGraph() {
-    graph.nodes.clear();
-    graph.edges.clear();
-    final Map<String, Node> nodeMap = {};
-
-    for (var member in members) {
-      final node = Node.Id(member.id);
-      nodeMap[member.id] = node;
-      graph.addNode(node);
-    }
-
-    for (var member in members) {
-      if (member.parentId != null && nodeMap.containsKey(member.parentId)) {
-        graph.addEdge(nodeMap[member.parentId]!, nodeMap[member.id]!);
-      }
-    }
-  }
-
-  Color _getColor(String? colorName) {
-    switch (colorName) {
-      case 'red':
-        return Colors.red.shade400;
-      case 'blue':
-        return Colors.blue.shade400;
-      case 'green':
-        return Colors.green.shade400;
-      case 'orange':
-        return Colors.orange.shade400;
-      case 'purple':
-        return Colors.purple.shade400;
-      case 'teal':
-        return Colors.teal.shade400;
-      case 'pink':
-        return Colors.pink.shade400;
-      case 'amber':
-        return Colors.amber.shade600;
-      default:
-        return Colors.grey.shade400;
-    }
   }
 
   // ==================== SEARCH ====================
@@ -140,7 +91,8 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                       itemBuilder: (context, i) {
                         final p = results[i];
                         return ListTile(
-                          leading: const Icon(Icons.person, color: Colors.teal),
+                          leading:
+                              const Icon(Icons.person, color: Colors.teal),
                           title: Text(p.name),
                           onTap: () {
                             Navigator.pop(ctx);
@@ -268,8 +220,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content:
-                        Text('✅ Master Backup created successfully!'),
+                    content: Text('✅ Master Backup created!'),
                     backgroundColor: Colors.teal,
                   ),
                 );
@@ -377,7 +328,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                         decoded.map((e) => Person.fromJson(e)).toList();
                   });
                   await _saveData();
-                  _buildGraph();
                   if (mounted) {
                     Navigator.pop(ctx);
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -458,24 +408,12 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
             pw.SizedBox(height: 10),
             pw.Divider(color: PdfColors.teal900, thickness: 2),
             pw.SizedBox(height: 10),
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text(
-                  'Total Members: ${members.length}',
-                  style: pw.TextStyle(
-                    fontSize: 12,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-                pw.Text(
-                  'Generated: ${DateTime.now().toString().substring(0, 16)}',
-                  style: const pw.TextStyle(
-                    fontSize: 10,
-                    color: PdfColors.grey700,
-                  ),
-                ),
-              ],
+            pw.Text(
+              'Total Members: ${members.length}',
+              style: pw.TextStyle(
+                fontSize: 12,
+                fontWeight: pw.FontWeight.bold,
+              ),
             ),
             pw.SizedBox(height: 20),
             pw.TableHelper.fromTextArray(
@@ -501,7 +439,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
               ),
               headerDecoration:
                   const pw.BoxDecoration(color: PdfColors.teal900),
-              cellAlignment: pw.Alignment.centerLeft,
               cellStyle: const pw.TextStyle(fontSize: 10),
               cellPadding:
                   const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -511,8 +448,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                   pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
             ),
             pw.SizedBox(height: 20),
-            pw.Divider(color: PdfColors.grey400),
-            pw.SizedBox(height: 8),
             pw.Center(
               child: pw.Text(
                 'Mughal Barlas Family Tree © ${DateTime.now().year}',
@@ -533,7 +468,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     );
   }
 
-  // ==================== ADD/EDIT ====================
+  // ==================== ADD/EDIT DIALOG ====================
   void _showAddEditDialog({Person? person}) {
     final nameCtrl = TextEditingController(text: person?.name ?? '');
     String? selectedParent = person?.parentId;
@@ -543,8 +478,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title:
-              Text(person == null ? 'Add New Member' : 'Edit Member'),
+          title: Text(person == null ? 'Add New Member' : 'Edit Member'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -609,7 +543,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                   setState(() => members
                       .removeWhere((m) => m.id == person.id));
                   _saveData();
-                  _buildGraph();
                   Navigator.pop(ctx);
                 },
                 child: const Text('Delete',
@@ -628,6 +561,23 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                 if (nameCtrl.text.trim().isEmpty) return;
                 setState(() {
                   if (person == null) {
+                    // نیا باکس والد کے نیچے بنے گا
+                    double newX = 0;
+                    double newY = 0;
+                    if (selectedParent != null) {
+                      final parent = members.firstWhere(
+                        (m) => m.id == selectedParent,
+                        orElse: () => Person(id: '', name: ''),
+                      );
+                      if (parent.id.isNotEmpty) {
+                        // اسی نسل کے افراد گنیں
+                        final siblings = members
+                            .where((m) => m.parentId == selectedParent)
+                            .toList();
+                        newX = parent.x + (siblings.length * 160) - 80;
+                        newY = parent.y + 150;
+                      }
+                    }
                     members.add(Person(
                       id: DateTime.now()
                           .millisecondsSinceEpoch
@@ -635,6 +585,8 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                       name: nameCtrl.text.trim(),
                       parentId: selectedParent,
                       branchColor: selectedColor,
+                      x: newX,
+                      y: newY,
                     ));
                   } else {
                     final idx =
@@ -644,11 +596,12 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                       name: nameCtrl.text.trim(),
                       parentId: selectedParent,
                       branchColor: selectedColor,
+                      x: person.x,
+                      y: person.y,
                     );
                   }
                 });
                 _saveData();
-                _buildGraph();
                 Navigator.pop(ctx);
               },
               child: const Text('Save'),
@@ -692,90 +645,52 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
       body: InteractiveViewer(
         constrained: false,
         boundaryMargin: const EdgeInsets.all(2000),
-        minScale: 0.05,
+        minScale: 0.1,
         maxScale: 3.0,
-        child: GraphView(
-          graph: graph,
-          algorithm: BuchheimWalkerAlgorithm(
-              builder, TreeEdgeRenderer(builder)),
-          paint: Paint()
-            ..color = Colors.teal.shade800
-            ..strokeWidth = 2
-            ..style = PaintingStyle.stroke,
-          builder: (Node node) {
-            var id = node.key!.value as String;
-            var member = members.firstWhere(
-              (m) => m.id == id,
-              orElse: () => Person(id: id, name: id),
-            );
-            final parent = member.parentId != null
-                ? members.firstWhere(
-                    (x) => x.id == member.parentId,
-                    orElse: () => Person(id: '', name: ''),
-                  )
-                : null;
-
-            final borderColor = _getColor(member.branchColor);
-            final isHighlighted = highlightId == member.id;
-
-            return GestureDetector(
-              onTap: () => _showAddEditDialog(person: member),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 10),
-                constraints:
-                    const BoxConstraints(minWidth: 110, maxWidth: 160),
-                decoration: BoxDecoration(
-                  color: isHighlighted
-                      ? Colors.yellow.shade100
-                      : Colors.white,
-                  border: Border.all(
-                    color: isHighlighted
-                        ? Colors.amber.shade700
-                        : borderColor,
-                    width: isHighlighted ? 3 : 2,
-                  ),
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: isHighlighted
-                          ? Colors.amber.withOpacity(0.7)
-                          : borderColor.withOpacity(0.5),
-                      blurRadius: isHighlighted ? 16 : 8,
-                      spreadRadius: isHighlighted ? 3 : 1,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      member.name,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    if (parent != null && parent.id.isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        'ولدیت: ${parent.name}',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.grey.shade700,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+        child: SizedBox(
+          width: 5000,
+          height: 5000,
+          child: Stack(
+            children: [
+              // لائنیں
+              CustomPaint(
+                size: const Size(5000, 5000),
+                painter: _LinesPainter(members: members),
               ),
-            );
-          },
+              // باکسز
+              ...members.map((m) {
+                return Positioned(
+                  left: m.x + 2500,
+                  top: m.y + 2500,
+                  child: Draggable<String>(
+                    data: m.id,
+                    feedback: Material(
+                      color: Colors.transparent,
+                      child: _buildBox(m, true),
+                    ),
+                    childWhenDragging: Opacity(
+                      opacity: 0.3,
+                      child: _buildBox(m, false),
+                    ),
+                    onDragEnd: (details) {
+                      setState(() {
+                        m = m.copyWith(
+                          x: m.x + details.offset.dx,
+                          y: m.y + details.offset.dy,
+                        );
+                        final idx = members.indexWhere((p) => p.id == m.id);
+                        if (idx != -1) {
+                          members[idx] = m;
+                        }
+                      });
+                      _saveData();
+                    },
+                    child: _buildBox(m, false),
+                  ),
+                );
+              }).toList(),
+            ],
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
@@ -785,4 +700,64 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
       ),
     );
   }
+
+  Widget _buildBox(Person m, bool isDragging) {
+    final parent = m.parentId != null
+        ? members.firstWhere(
+            (x) => x.id == m.parentId,
+            orElse: () => Person(id: '', name: ''),
+          )
+        : null;
+
+    return PersonBox(
+      person: m,
+      parent: parent?.id.isEmpty == true ? null : parent,
+      isHighlighted: highlightId == m.id,
+      onTap: () => _showAddEditDialog(person: m),
+    );
+  }
+}
+
+// ==================== LINES PAINTER ====================
+class _LinesPainter extends CustomPainter {
+  final List<Person> members;
+
+  _LinesPainter({required this.members});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.teal.shade800
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    for (var child in members) {
+      if (child.parentId == null) continue;
+      final parent = members.firstWhere(
+        (p) => p.id == child.parentId,
+        orElse: () => Person(id: '', name: ''),
+      );
+      if (parent.id.isEmpty) continue;
+
+      // والد کے باکس کا نچلا وسط
+      final pX = parent.x + 2500 + 65;
+      final pY = parent.y + 2500 + 60;
+
+      // بچے کے باکس کا اوپری وسط
+      final cX = child.x + 2500 + 65;
+      final cY = child.y + 2500;
+
+      final path = Path();
+      path.moveTo(pX, pY);
+      path.lineTo(pX, (pY + cY) / 2);
+      path.lineTo(cX, (pY + cY) / 2);
+      path.lineTo(cX, cY);
+
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
