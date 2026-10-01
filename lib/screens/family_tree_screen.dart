@@ -93,7 +93,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('نام تلاش کریں'),
+          title: const Text('Search Name / نام تلاش کریں'),
           content: SizedBox(
             width: double.maxFinite,
             child: Column(
@@ -103,7 +103,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                   controller: searchCtrl,
                   autofocus: true,
                   decoration: const InputDecoration(
-                    labelText: 'نام لکھیں',
+                    labelText: 'Type name...',
                     prefixIcon: Icon(Icons.search),
                   ),
                   onChanged: (val) {
@@ -149,7 +149,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                 else if (searchCtrl.text.trim().isNotEmpty)
                   const Padding(
                     padding: EdgeInsets.all(8.0),
-                    child: Text('کوئی نام نہیں ملا',
+                    child: Text('No name found',
                         style: TextStyle(color: Colors.grey)),
                   ),
               ],
@@ -158,7 +158,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('بند کریں'),
+              child: const Text('Close'),
             ),
           ],
         ),
@@ -170,54 +170,131 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   Future<void> _generatePdf() async {
     final pdf = pw.Document();
 
+    // Sort members by depth (generation) for better organization
+    final sortedMembers = List<Person>.from(members);
+    sortedMembers.sort((a, b) {
+      final da = _getDepth(a, members);
+      final db = _getDepth(b, members);
+      if (da != db) return da.compareTo(db);
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(20),
+        margin: const pw.EdgeInsets.all(30),
         build: (pw.Context context) {
           return [
+            // Title
             pw.Header(
               level: 0,
-              child: pw.Text(
-                'JM Family Tree',
-                style: pw.TextStyle(
-                  fontSize: 24,
-                  fontWeight: pw.FontWeight.bold,
-                  color: PdfColors.teal800,
-                ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    'Mughal Barlas Family Tree',
+                    style: pw.TextStyle(
+                      fontSize: 26,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.teal900,
+                    ),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    'Complete Family Lineage',
+                    style: const pw.TextStyle(
+                      fontSize: 12,
+                      color: PdfColors.grey700,
+                    ),
+                  ),
+                ],
               ),
             ),
+            pw.SizedBox(height: 10),
+            pw.Divider(color: PdfColors.teal900, thickness: 2),
+            pw.SizedBox(height: 10),
+
+            // Info row
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  'Total Members: ${members.length}',
+                  style: pw.TextStyle(
+                    fontSize: 12,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.Text(
+                  'Generated: ${DateTime.now().toString().substring(0, 16)}',
+                  style: const pw.TextStyle(
+                    fontSize: 10,
+                    color: PdfColors.grey700,
+                  ),
+                ),
+              ],
+            ),
             pw.SizedBox(height: 20),
-            pw.Text('کل افراد: ${members.length}',
-                style: const pw.TextStyle(fontSize: 14)),
-            pw.SizedBox(height: 20),
+
+            // Table
             pw.TableHelper.fromTextArray(
-              headers: ['نام', 'والد'],
-              data: members.map((m) {
+              headers: ['#', 'Name', "Father's Name", 'Generation'],
+              data: List.generate(sortedMembers.length, (i) {
+                final m = sortedMembers[i];
                 final parent = m.parentId != null
                     ? members.firstWhere(
                         (x) => x.id == m.parentId,
                         orElse: () => Person(id: '', name: '-'),
                       )
                     : null;
-                return [m.name, parent?.name ?? '-'];
-              }).toList(),
+                final gen = _getDepth(m, members) + 1;
+                return [
+                  '${i + 1}',
+                  m.name,
+                  parent?.name ?? '-',
+                  'Gen $gen',
+                ];
+              }),
               headerStyle: pw.TextStyle(
                 fontWeight: pw.FontWeight.bold,
                 color: PdfColors.white,
+                fontSize: 12,
               ),
-              headerDecoration: const pw.BoxDecoration(color: PdfColors.teal800),
-              cellAlignment: pw.Alignment.center,
-              cellStyle: const pw.TextStyle(fontSize: 11),
+              headerDecoration: const pw.BoxDecoration(color: PdfColors.teal900),
+              cellAlignment: pw.Alignment.centerLeft,
+              cellStyle: const pw.TextStyle(fontSize: 10),
+              cellPadding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              oddRowDecoration: const pw.BoxDecoration(color: PdfColors.grey100),
+              border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+              columnWidths: {
+                0: const pw.FixedColumnWidth(30),
+                1: const pw.FlexColumnWidth(3),
+                2: const pw.FlexColumnWidth(3),
+                3: const pw.FixedColumnWidth(60),
+              },
+            ),
+
+            pw.SizedBox(height: 20),
+            pw.Divider(color: PdfColors.grey400),
+            pw.SizedBox(height: 8),
+            pw.Center(
+              child: pw.Text(
+                'Mughal Barlas Family Tree © ${DateTime.now().year}',
+                style: const pw.TextStyle(
+                  fontSize: 9,
+                  color: PdfColors.grey600,
+                ),
+              ),
             ),
           ];
         },
       ),
     );
 
+    // Show print/save dialog - user can choose page size, printer, or save as PDF
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdf.save(),
-      name: 'JM_Family_Tree.pdf',
+      name: 'Mughal_Barlas_Family_Tree.pdf',
     );
   }
 
@@ -231,19 +308,19 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text(person == null ? 'نیا فرد شامل کریں' : 'ترمیم کریں'),
+          title: Text(person == null ? 'Add New Member' : 'Edit Member'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
                   controller: nameCtrl,
-                  decoration: const InputDecoration(labelText: 'نام'),
+                  decoration: const InputDecoration(labelText: 'Name / نام'),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: selectedParent,
-                  decoration: const InputDecoration(labelText: 'والد'),
+                  decoration: const InputDecoration(labelText: 'Father / والد'),
                   items: members
                       .where((m) => person == null || m.id != person.id)
                       .map((m) => DropdownMenuItem(
@@ -256,16 +333,16 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: selectedColor,
-                  decoration: const InputDecoration(labelText: 'شاخ کا رنگ'),
+                  decoration: const InputDecoration(labelText: 'Branch Color'),
                   items: const [
-                    DropdownMenuItem(value: 'red', child: Text('سرخ')),
-                    DropdownMenuItem(value: 'blue', child: Text('نیلا')),
-                    DropdownMenuItem(value: 'green', child: Text('سبز')),
-                    DropdownMenuItem(value: 'orange', child: Text('نارنجی')),
-                    DropdownMenuItem(value: 'purple', child: Text('جامنی')),
-                    DropdownMenuItem(value: 'teal', child: Text('ٹیل')),
-                    DropdownMenuItem(value: 'pink', child: Text('گلابی')),
-                    DropdownMenuItem(value: 'amber', child: Text('سنہری')),
+                    DropdownMenuItem(value: 'red', child: Text('Red / سرخ')),
+                    DropdownMenuItem(value: 'blue', child: Text('Blue / نیلا')),
+                    DropdownMenuItem(value: 'green', child: Text('Green / سبز')),
+                    DropdownMenuItem(value: 'orange', child: Text('Orange / نارنجی')),
+                    DropdownMenuItem(value: 'purple', child: Text('Purple / جامنی')),
+                    DropdownMenuItem(value: 'teal', child: Text('Teal / ٹیل')),
+                    DropdownMenuItem(value: 'pink', child: Text('Pink / گلابی')),
+                    DropdownMenuItem(value: 'amber', child: Text('Amber / سنہری')),
                   ],
                   onChanged: (v) => setDialogState(() => selectedColor = v!),
                 ),
@@ -280,11 +357,11 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                   _saveData();
                   Navigator.pop(ctx);
                 },
-                child: const Text('ڈیلیٹ', style: TextStyle(color: Colors.red)),
+                child: const Text('Delete', style: TextStyle(color: Colors.red)),
               ),
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('منسوخ'),
+              child: const Text('Cancel'),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -314,7 +391,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                 _saveData();
                 Navigator.pop(ctx);
               },
-              child: const Text('محفوظ کریں'),
+              child: const Text('Save'),
             ),
           ],
         ),
@@ -335,18 +412,18 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('JM Family Tree'),
+        title: const Text('Mughal Barlas Family Tree'),
         backgroundColor: Colors.teal.shade800,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
-            tooltip: 'نام تلاش کریں',
+            tooltip: 'Search',
             onPressed: _showSearchDialog,
           ),
           IconButton(
             icon: const Icon(Icons.picture_as_pdf),
-            tooltip: 'PDF بنائیں',
+            tooltip: 'Generate PDF',
             onPressed: _generatePdf,
           ),
         ],
