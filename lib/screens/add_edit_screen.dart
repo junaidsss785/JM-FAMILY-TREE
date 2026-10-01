@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import '../models/person.dart';
+import '../models/family_member.dart';
 
 class AddEditScreen extends StatefulWidget {
-  final Person? memberToEdit;
-  final List<Person> allMembers;
-  final Function(Person) onSave;
+  final FamilyMember? memberToEdit;
+  final List<FamilyMember> allMembers;
+  final Function(FamilyMember) onSave;
 
   const AddEditScreen({
     Key? key,
@@ -44,7 +44,9 @@ class _AddEditScreenState extends State<AddEditScreen> {
       _fatherName = '';
       _branchColorName = 'Blue';
     }
-    _fatherController = TextEditingController(text: _fatherName);
+    _fatherController = TextEditingController(
+      text: _fatherName == 'Root Ancestor' ? '' : _fatherName,
+    );
   }
 
   @override
@@ -56,64 +58,49 @@ class _AddEditScreenState extends State<AddEditScreen> {
   void _saveForm() {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
-      _fatherName = _fatherController.text.trim();
 
-      // اگر والد کا نام خالی ہے تو خود "Root Ancestor" مان لیں
-      if (_fatherName.isEmpty) {
-        _fatherName = 'Root Ancestor';
-      }
+      // والد اختیاری ہے - اگر خالی چھوڑیں تو Root Ancestor
+      String enteredFather = _fatherController.text.trim();
+      _fatherName =
+          enteredFather.isEmpty ? 'Root Ancestor' : enteredFather;
 
-      // چیک کریں کہ والد لسٹ میں موجود ہے یا نہیں
-      bool fatherExists = widget.allMembers.any(
-        (m) => m.name.trim().toLowerCase() == _fatherName.toLowerCase(),
-      );
-
-      // اگر والد کا نام نیا ہے (اور Root Ancestor نہیں) تو خود بخود باکس بنا دیں
-      if (!fatherExists &&
-          _fatherName.isNotEmpty &&
-          _fatherName.toLowerCase() != 'root ancestor') {
-        double currentX = widget.memberToEdit?.x ?? 500.0;
-        double currentY = widget.memberToEdit?.y ?? 500.0;
-
-        final newFatherMember = Person(
-          id: DateTime.now().millisecondsSinceEpoch.toString() + '_father',
-          name: _fatherName,
-          fatherName: 'Root Ancestor',
-          branchColorName: _branchColorName,
-          childrenIds: [widget.memberToEdit?.id ?? ''],
-          x: currentX,
-          y: currentY - 150.0,
-        );
-        widget.onSave(newFatherMember);
-      }
-
-      // موجودہ فرد کی پوزیشن
       double newX = widget.memberToEdit?.x ?? 500.0;
       double newY = widget.memberToEdit?.y ?? 500.0;
 
-      if (widget.memberToEdit == null) {
-        // نیا فرد - والد کے نیچے
-        if (_fatherName.toLowerCase() != 'root ancestor') {
-          var parentList = widget.allMembers.where(
-            (m) =>
-                m.name.trim().toLowerCase() == _fatherName.toLowerCase(),
+      // اگر نیا فرد ہے اور والد لسٹ میں نہیں ہے تو خود بخود والد کا باکس بنائیں
+      if (widget.memberToEdit == null &&
+          _fatherName != 'Root Ancestor') {
+        bool fatherExists = widget.allMembers.any(
+          (m) =>
+              m.name.trim().toLowerCase() == _fatherName.toLowerCase(),
+        );
+
+        if (!fatherExists) {
+          final newFatherMember = FamilyMember(
+            id: DateTime.now().millisecondsSinceEpoch.toString() +
+                '_father',
+            name: _fatherName,
+            fatherName: 'Root Ancestor',
+            branchColorName: _branchColorName,
+            childrenIds: [],
+            x: newX,
+            y: newY - 150.0,
           );
-          if (parentList.isNotEmpty) {
-            var parent = parentList.first;
-            newX = parent.x;
-            newY = parent.y + 150.0;
-          } else {
-            newX = 500.0;
-            newY = 500.0;
-          }
+          widget.onSave(newFatherMember);
         } else {
-          // Root ancestor - اوپر
-          newX = 500.0;
-          newY = 100.0;
+          // والد موجود ہے تو اس کے نیچے پوزیشن
+          final parent = widget.allMembers.firstWhere(
+            (m) =>
+                m.name.trim().toLowerCase() ==
+                _fatherName.toLowerCase(),
+            orElse: () => widget.allMembers.first,
+          );
+          newX = parent.x;
+          newY = parent.y + 150.0;
         }
       }
 
-      final updatedMember = Person(
+      final updatedMember = FamilyMember(
         id: widget.memberToEdit?.id ??
             DateTime.now().millisecondsSinceEpoch.toString(),
         name: _name.trim(),
@@ -162,7 +149,8 @@ class _AddEditScreenState extends State<AddEditScreen> {
                   enabledBorder: OutlineInputBorder(
                       borderSide: BorderSide(color: Colors.grey)),
                   focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF004D40))),
+                      borderSide:
+                          BorderSide(color: Color(0xFF004D40))),
                 ),
                 validator: (value) =>
                     (value == null || value.trim().isEmpty)
@@ -172,18 +160,22 @@ class _AddEditScreenState extends State<AddEditScreen> {
               ),
               const SizedBox(height: 16),
 
-              // والد (Autocomplete) - Optional
+              // والد (Autocomplete) - اختیاری
               Autocomplete<String>(
-                optionsBuilder: (TextEditingValue textEditingValue) {
-                  if (textEditingValue.text.isEmpty) return sortedNames;
+                optionsBuilder:
+                    (TextEditingValue textEditingValue) {
+                  if (textEditingValue.text.isEmpty) {
+                    return sortedNames;
+                  }
                   return sortedNames.where((option) => option
                       .toLowerCase()
-                      .contains(textEditingValue.text.toLowerCase()));
+                      .contains(
+                          textEditingValue.text.toLowerCase()));
                 },
                 onSelected: (selection) =>
                     _fatherController.text = selection,
-                fieldViewBuilder:
-                    (context, controller, focusNode, onFieldSubmitted) {
+                fieldViewBuilder: (context, controller, focusNode,
+                    onFieldSubmitted) {
                   if (controller.text.isEmpty &&
                       _fatherController.text.isNotEmpty) {
                     controller.text = _fatherController.text;
@@ -194,14 +186,16 @@ class _AddEditScreenState extends State<AddEditScreen> {
                     style: const TextStyle(color: Colors.black),
                     decoration: const InputDecoration(
                       labelText:
-                          'ولدیت (اختیاری - پرانا نام تلاش کریں یا نیا نام لکھیں)',
+                          'ولدیت (خالی چھوڑ سکتے ہیں اگر سب سے اوپر کا بزرگ ہو)',
                       labelStyle: TextStyle(color: Colors.grey),
                       enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: Colors.grey)),
+                          borderSide:
+                              BorderSide(color: Colors.grey)),
                       focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: Color(0xFF004D40))),
+                          borderSide: BorderSide(
+                              color: Color(0xFF004D40))),
                     ),
-                    // یہاں validator ہٹا دیا - Optional
+                    // والد اختیاری - کوئی validator نہیں
                   );
                 },
               ),
@@ -218,11 +212,12 @@ class _AddEditScreenState extends State<AddEditScreen> {
                   enabledBorder: OutlineInputBorder(
                       borderSide: BorderSide(color: Colors.grey)),
                   focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF004D40))),
+                      borderSide:
+                          BorderSide(color: Color(0xFF004D40))),
                 ),
                 items: availableColors
-                    .map((color) =>
-                        DropdownMenuItem(value: color, child: Text(color)))
+                    .map((color) => DropdownMenuItem(
+                        value: color, child: Text(color)))
                     .toList(),
                 onChanged: (value) =>
                     setState(() => _branchColorName = value!),
@@ -237,7 +232,9 @@ class _AddEditScreenState extends State<AddEditScreen> {
                 ),
                 onPressed: _saveForm,
                 child: Text(
-                  isEditing ? 'تبدیلیاں محفوظ کریں' : 'محفوظ کریں',
+                  isEditing
+                      ? 'تبدیلیاں محفوظ کریں'
+                      : 'محفوظ کریں',
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
