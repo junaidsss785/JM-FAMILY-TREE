@@ -3,10 +3,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:graphview/GraphView.dart';
 import 'dart:convert';
 import '../models/person.dart';
 import '../data/family_data.dart';
-import '../widgets/person_box.dart';
 
 class FamilyTreeScreen extends StatefulWidget {
   const FamilyTreeScreen({super.key});
@@ -19,11 +19,18 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   List<Person> members = [];
   bool loading = true;
   String? highlightId;
-  final double boxWidth = 130;
+
+  final Graph graph = Graph()..isTree = true;
+  BuchheimWalkerConfiguration builder = BuchheimWalkerConfiguration();
 
   @override
   void initState() {
     super.initState();
+    builder
+      ..siblingSeparation = 30
+      ..levelSeparation = 80
+      ..subtreeSeparation = 50
+      ..orientation = BuchheimWalkerConfiguration.ORIENTATION_TOP_BOTTOM;
     _loadData();
   }
 
@@ -37,6 +44,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
       members = List.from(initialFamilyMembers);
       await _saveData();
     }
+    _buildGraph();
     setState(() => loading = false);
   }
 
@@ -46,42 +54,45 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     await prefs.setString('family_data', data);
   }
 
-  Map<String, Offset> _calculatePositions() {
-    final Map<String, Offset> positions = {};
-    Map<String, int> depth = {};
-    for (var m in members) {
-      depth[m.id] = _getDepth(m, members);
+  void _buildGraph() {
+    graph.nodes.clear();
+    graph.edges.clear();
+    final Map<String, Node> nodeMap = {};
+
+    for (var member in members) {
+      final node = Node.Id(member.id);
+      nodeMap[member.id] = node;
+      graph.addNode(node);
     }
-    Map<int, List<Person>> byDepth = {};
-    for (var m in members) {
-      final d = depth[m.id]!;
-      byDepth.putIfAbsent(d, () => []).add(m);
-    }
-    byDepth.forEach((d, list) {
-      double totalWidth = list.length * (boxWidth + 20);
-      double startX = -totalWidth / 2;
-      for (int i = 0; i < list.length; i++) {
-        final x = startX + i * (boxWidth + 20) + boxWidth / 2;
-        final y = d * 130.0 + 50;
-        positions[list[i].id] = Offset(x, y);
+
+    for (var member in members) {
+      if (member.parentId != null && nodeMap.containsKey(member.parentId)) {
+        graph.addEdge(nodeMap[member.parentId]!, nodeMap[member.id]!);
       }
-    });
-    return positions;
+    }
   }
 
-  int _getDepth(Person p, List<Person> all) {
-    int d = 0;
-    String? pid = p.parentId;
-    while (pid != null) {
-      d++;
-      final parent = all.firstWhere(
-        (m) => m.id == pid,
-        orElse: () => Person(id: '', name: ''),
-      );
-      if (parent.id.isEmpty) break;
-      pid = parent.parentId;
+  Color _getColor(String? colorName) {
+    switch (colorName) {
+      case 'red':
+        return Colors.red.shade400;
+      case 'blue':
+        return Colors.blue.shade400;
+      case 'green':
+        return Colors.green.shade400;
+      case 'orange':
+        return Colors.orange.shade400;
+      case 'purple':
+        return Colors.purple.shade400;
+      case 'teal':
+        return Colors.teal.shade400;
+      case 'pink':
+        return Colors.pink.shade400;
+      case 'amber':
+        return Colors.amber.shade600;
+      default:
+        return Colors.grey.shade400;
     }
-    return d;
   }
 
   // ==================== SEARCH ====================
@@ -170,16 +181,14 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   Future<void> _showMasterBackupDialog() async {
     final prefs = await SharedPreferences.getInstance();
     final savedPassword = prefs.getString('master_password');
-    final hasMaster = prefs.getString('master_data') != null;
 
     if (savedPassword == null) {
       _showSetPasswordDialog(prefs);
     } else {
-      _showPasswordOptionsDialog(prefs, hasMaster);
+      _showPasswordOptionsDialog(prefs);
     }
   }
 
-  // پہلی بار پاسورڈ سیٹ کریں
   void _showSetPasswordDialog(SharedPreferences prefs) {
     final passCtrl = TextEditingController();
     final confirmCtrl = TextEditingController();
@@ -238,7 +247,8 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
               final p2 = confirmCtrl.text.trim();
               if (p1.isEmpty || p1.length < 4) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Password must be 4+ characters')),
+                  const SnackBar(
+                      content: Text('Password must be 4+ characters')),
                 );
                 return;
               }
@@ -250,14 +260,16 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
               }
 
               await prefs.setString('master_password', p1);
-              final data = jsonEncode(members.map((e) => e.toJson()).toList());
+              final data =
+                  jsonEncode(members.map((e) => e.toJson()).toList());
               await prefs.setString('master_data', data);
 
               if (mounted) {
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('✅ Master Backup created successfully!'),
+                    content:
+                        Text('✅ Master Backup created successfully!'),
                     backgroundColor: Colors.teal,
                   ),
                 );
@@ -270,8 +282,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     );
   }
 
-  // پاسورڈ ڈال کر آپشنز
-  void _showPasswordOptionsDialog(SharedPreferences prefs, bool hasMaster) {
+  void _showPasswordOptionsDialog(SharedPreferences prefs) {
     final passCtrl = TextEditingController();
 
     showDialog(
@@ -284,19 +295,14 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
             Text('Master Backup'),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: passCtrl,
-              obscureText: true,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Password',
-                prefixIcon: Icon(Icons.key),
-              ),
-            ),
-          ],
+        content: TextField(
+          controller: passCtrl,
+          obscureText: true,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Password',
+            prefixIcon: Icon(Icons.key),
+          ),
         ),
         actions: [
           TextButton(
@@ -319,10 +325,9 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                 );
                 return;
               }
-
               if (mounted) {
                 Navigator.pop(ctx);
-                _showMasterActionsDialog(prefs, hasMaster);
+                _showMasterActionsDialog(prefs);
               }
             },
             child: const Text('Unlock'),
@@ -332,8 +337,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     );
   }
 
-  // Master کے آپشنز
-  void _showMasterActionsDialog(SharedPreferences prefs, bool hasMaster) {
+  void _showMasterActionsDialog(SharedPreferences prefs) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -373,6 +377,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                         decoded.map((e) => Person.fromJson(e)).toList();
                   });
                   await _saveData();
+                  _buildGraph();
                   if (mounted) {
                     Navigator.pop(ctx);
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -386,7 +391,8 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.delete_forever, color: Colors.red),
+              leading:
+                  const Icon(Icons.delete_forever, color: Colors.red),
               title: const Text('Remove Master'),
               subtitle: const Text('Delete Master backup & password'),
               onTap: () async {
@@ -418,13 +424,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   // ==================== PDF ====================
   Future<void> _generatePdf() async {
     final pdf = pw.Document();
-    final sortedMembers = List<Person>.from(members);
-    sortedMembers.sort((a, b) {
-      final da = _getDepth(a, members);
-      final db = _getDepth(b, members);
-      if (da != db) return da.compareTo(db);
-      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-    });
 
     pdf.addPage(
       pw.MultiPage(
@@ -480,21 +479,19 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
             ),
             pw.SizedBox(height: 20),
             pw.TableHelper.fromTextArray(
-              headers: ['#', 'Name', "Father's Name", 'Generation'],
-              data: List.generate(sortedMembers.length, (i) {
-                final m = sortedMembers[i];
+              headers: ['#', 'Name', "Father's Name"],
+              data: List.generate(members.length, (i) {
+                final m = members[i];
                 final parent = m.parentId != null
                     ? members.firstWhere(
                         (x) => x.id == m.parentId,
                         orElse: () => Person(id: '', name: '-'),
                       )
                     : null;
-                final gen = _getDepth(m, members) + 1;
                 return [
                   '${i + 1}',
                   m.name,
                   parent?.name ?? '-',
-                  'Gen $gen',
                 ];
               }),
               headerStyle: pw.TextStyle(
@@ -502,20 +499,16 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                 color: PdfColors.white,
                 fontSize: 12,
               ),
-              headerDecoration: const pw.BoxDecoration(color: PdfColors.teal900),
+              headerDecoration:
+                  const pw.BoxDecoration(color: PdfColors.teal900),
               cellAlignment: pw.Alignment.centerLeft,
               cellStyle: const pw.TextStyle(fontSize: 10),
               cellPadding:
                   const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               oddRowDecoration:
                   const pw.BoxDecoration(color: PdfColors.grey100),
-              border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
-              columnWidths: {
-                0: const pw.FixedColumnWidth(30),
-                1: const pw.FlexColumnWidth(3),
-                2: const pw.FlexColumnWidth(3),
-                3: const pw.FixedColumnWidth(60),
-              },
+              border:
+                  pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
             ),
             pw.SizedBox(height: 20),
             pw.Divider(color: PdfColors.grey400),
@@ -540,7 +533,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     );
   }
 
-  // ==================== ADD/EDIT DIALOG ====================
+  // ==================== ADD/EDIT ====================
   void _showAddEditDialog({Person? person}) {
     final nameCtrl = TextEditingController(text: person?.name ?? '');
     String? selectedParent = person?.parentId;
@@ -550,47 +543,61 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text(person == null ? 'Add New Member' : 'Edit Member'),
+          title:
+              Text(person == null ? 'Add New Member' : 'Edit Member'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
                   controller: nameCtrl,
-                  decoration: const InputDecoration(labelText: 'Name / نام'),
+                  decoration:
+                      const InputDecoration(labelText: 'Name / نام'),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: selectedParent,
-                  decoration:
-                      const InputDecoration(labelText: 'Father / والد'),
+                  decoration: const InputDecoration(
+                      labelText: 'Father / والد'),
                   items: members
-                      .where((m) => person == null || m.id != person.id)
+                      .where((m) =>
+                          person == null || m.id != person.id)
                       .map((m) => DropdownMenuItem(
                             value: m.id,
                             child: Text(m.name),
                           ))
                       .toList(),
-                  onChanged: (v) => setDialogState(() => selectedParent = v),
+                  onChanged: (v) =>
+                      setDialogState(() => selectedParent = v),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: selectedColor,
-                  decoration: const InputDecoration(labelText: 'Branch Color'),
+                  decoration:
+                      const InputDecoration(labelText: 'Branch Color'),
                   items: const [
-                    DropdownMenuItem(value: 'red', child: Text('Red / سرخ')),
-                    DropdownMenuItem(value: 'blue', child: Text('Blue / نیلا')),
-                    DropdownMenuItem(value: 'green', child: Text('Green / سبز')),
                     DropdownMenuItem(
-                        value: 'orange', child: Text('Orange / نارنجی')),
+                        value: 'red', child: Text('Red / سرخ')),
                     DropdownMenuItem(
-                        value: 'purple', child: Text('Purple / جامنی')),
-                    DropdownMenuItem(value: 'teal', child: Text('Teal / ٹیل')),
-                    DropdownMenuItem(value: 'pink', child: Text('Pink / گلابی')),
+                        value: 'blue', child: Text('Blue / نیلا')),
                     DropdownMenuItem(
-                        value: 'amber', child: Text('Amber / سنہری')),
+                        value: 'green', child: Text('Green / سبز')),
+                    DropdownMenuItem(
+                        value: 'orange',
+                        child: Text('Orange / نارنجی')),
+                    DropdownMenuItem(
+                        value: 'purple',
+                        child: Text('Purple / جامنی')),
+                    DropdownMenuItem(
+                        value: 'teal', child: Text('Teal / ٹیل')),
+                    DropdownMenuItem(
+                        value: 'pink', child: Text('Pink / گلابی')),
+                    DropdownMenuItem(
+                        value: 'amber',
+                        child: Text('Amber / سنہری')),
                   ],
-                  onChanged: (v) => setDialogState(() => selectedColor = v!),
+                  onChanged: (v) =>
+                      setDialogState(() => selectedColor = v!),
                 ),
               ],
             ),
@@ -599,12 +606,14 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
             if (person != null)
               TextButton(
                 onPressed: () {
-                  setState(() => members.removeWhere((m) => m.id == person.id));
+                  setState(() => members
+                      .removeWhere((m) => m.id == person.id));
                   _saveData();
+                  _buildGraph();
                   Navigator.pop(ctx);
                 },
-                child:
-                    const Text('Delete', style: TextStyle(color: Colors.red)),
+                child: const Text('Delete',
+                    style: TextStyle(color: Colors.red)),
               ),
             TextButton(
               onPressed: () => Navigator.pop(ctx),
@@ -620,13 +629,16 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                 setState(() {
                   if (person == null) {
                     members.add(Person(
-                      id: DateTime.now().millisecondsSinceEpoch.toString(),
+                      id: DateTime.now()
+                          .millisecondsSinceEpoch
+                          .toString(),
                       name: nameCtrl.text.trim(),
                       parentId: selectedParent,
                       branchColor: selectedColor,
                     ));
                   } else {
-                    final idx = members.indexWhere((m) => m.id == person.id);
+                    final idx =
+                        members.indexWhere((m) => m.id == person.id);
                     members[idx] = Person(
                       id: person.id,
                       name: nameCtrl.text.trim(),
@@ -636,6 +648,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                   }
                 });
                 _saveData();
+                _buildGraph();
                 Navigator.pop(ctx);
               },
               child: const Text('Save'),
@@ -649,13 +662,9 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   @override
   Widget build(BuildContext context) {
     if (loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+          body: Center(child: CircularProgressIndicator()));
     }
-
-    final positions = _calculatePositions();
-    final Map<String, String?> parents = {
-      for (var m in members) m.id: m.parentId
-    };
 
     return Scaffold(
       appBar: AppBar(
@@ -682,40 +691,91 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
       ),
       body: InteractiveViewer(
         constrained: false,
-        boundaryMargin: const EdgeInsets.all(1000),
-        minScale: 0.1,
+        boundaryMargin: const EdgeInsets.all(2000),
+        minScale: 0.05,
         maxScale: 3.0,
-        child: SizedBox(
-          width: 3000,
-          height: 5000,
-          child: Stack(
-            children: [
-              CustomPaint(
-                size: const Size(3000, 5000),
-                painter: _LinesPainter(positions: positions, parents: parents),
-              ),
-              ...members.map((m) {
-                final pos = positions[m.id];
-                if (pos == null) return const SizedBox();
-                final parent = m.parentId != null
-                    ? members.firstWhere(
-                        (x) => x.id == m.parentId,
-                        orElse: () => Person(id: '', name: ''),
-                      )
-                    : null;
-                return Positioned(
-                  left: pos.dx + 1500 - boxWidth / 2,
-                  top: pos.dy,
-                  child: PersonBox(
-                    person: m,
-                    parent: parent?.id.isEmpty == true ? null : parent,
-                    isHighlighted: highlightId == m.id,
-                    onTap: () => _showAddEditDialog(person: m),
+        child: GraphView(
+          graph: graph,
+          algorithm: BuchheimWalkerAlgorithm(
+              builder, TreeEdgeRenderer(builder)),
+          paint: Paint()
+            ..color = Colors.teal.shade800
+            ..strokeWidth = 2
+            ..style = PaintingStyle.stroke,
+          builder: (Node node) {
+            var id = node.key!.value as String;
+            var member = members.firstWhere(
+              (m) => m.id == id,
+              orElse: () => Person(id: id, name: id),
+            );
+            final parent = member.parentId != null
+                ? members.firstWhere(
+                    (x) => x.id == member.parentId,
+                    orElse: () => Person(id: '', name: ''),
+                  )
+                : null;
+
+            final borderColor = _getColor(member.branchColor);
+            final isHighlighted = highlightId == member.id;
+
+            return GestureDetector(
+              onTap: () => _showAddEditDialog(person: member),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 10),
+                constraints:
+                    const BoxConstraints(minWidth: 110, maxWidth: 160),
+                decoration: BoxDecoration(
+                  color: isHighlighted
+                      ? Colors.yellow.shade100
+                      : Colors.white,
+                  border: Border.all(
+                    color: isHighlighted
+                        ? Colors.amber.shade700
+                        : borderColor,
+                    width: isHighlighted ? 3 : 2,
                   ),
-                );
-              }).toList(),
-            ],
-          ),
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: isHighlighted
+                          ? Colors.amber.withOpacity(0.7)
+                          : borderColor.withOpacity(0.5),
+                      blurRadius: isHighlighted ? 16 : 8,
+                      spreadRadius: isHighlighted ? 3 : 1,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      member.name,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    if (parent != null && parent.id.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        'ولدیت: ${parent.name}',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey.shade700,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          },
         ),
       ),
       floatingActionButton: FloatingActionButton(
@@ -725,40 +785,4 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
       ),
     );
   }
-}
-
-class _LinesPainter extends CustomPainter {
-  final Map<String, Offset> positions;
-  final Map<String, String?> parents;
-
-  _LinesPainter({required this.positions, required this.parents});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.teal.shade800
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    parents.forEach((childId, parentId) {
-      if (parentId != null &&
-          positions.containsKey(childId) &&
-          positions.containsKey(parentId)) {
-        final child = positions[childId]!;
-        final parent = positions[parentId]!;
-        final cx = child.dx + 1500;
-        final px = parent.dx + 1500;
-        final path = Path();
-        path.moveTo(px, parent.dy + 60);
-        path.lineTo(px, (parent.dy + child.dy) / 2 + 30);
-        path.lineTo(cx, (parent.dy + child.dy) / 2 + 30);
-        path.lineTo(cx, child.dy);
-        canvas.drawPath(path, paint);
-      }
-    });
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
