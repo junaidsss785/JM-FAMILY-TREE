@@ -32,4 +32,22 @@ class Person {
         x: (json['x'] ?? 0).toDouble(),
         y: (json['y'] ?? 0).toDouble(),
       );
+
+  Person copyWith({
+    String? id,
+    String? name,
+    String? parentId,
+    String? branchColor,
+    double? x,
+    double? y,
+  }) {
+    return Person(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      parentId: parentId ?? this.parentId,
+      branchColor: branchColor ?? this.branchColor,
+      x: x ?? this.x,
+      y: y ?? this.y,
+    );
+  }
 }
