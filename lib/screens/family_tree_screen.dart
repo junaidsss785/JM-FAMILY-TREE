@@ -48,29 +48,34 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
 
   // ==================== ADD/EDIT ====================
   void _openAddEditScreen({FamilyMember? member}) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (ctx) => AddEditScreen(
-          memberToEdit: member,
-          allMembers: members,
-          onSave: (savedMember) {
-            setState(() {
-              final idx =
-                  members.indexWhere((m) => m.id == savedMember.id);
-              if (idx != -1) {
-                members[idx] = savedMember;
-              } else {
-                members.add(savedMember);
-              }
-            });
-            _saveData();
-          },
-        ),
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (ctx) => AddEditScreen(
+        memberToEdit: member,
+        allMembers: members,
+        onSave: (savedMember) {
+          setState(() {
+            final idx =
+                members.indexWhere((m) => m.id == savedMember.id);
+            if (idx != -1) {
+              members[idx] = savedMember;
+            } else {
+              members.add(savedMember);
+            }
+          });
+          _saveData();
+        },
+        onDelete: (id) {
+          setState(() {
+            members.removeWhere((m) => m.id == id);
+          });
+          _saveData();
+        },
       ),
-    );
-  }
-
+    ),
+  );
+}
   // ==================== SEARCH ====================
   void _showSearchDialog() {
     final searchCtrl = TextEditingController();
