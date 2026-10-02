@@ -8,6 +8,7 @@ import '../models/family_member.dart';
 import '../data/family_data.dart';
 import '../widgets/person_box.dart';
 import 'add_edit_screen.dart';
+import 'settings_screen.dart';
 
 class FamilyTreeScreen extends StatefulWidget {
   const FamilyTreeScreen({super.key});
@@ -21,10 +22,17 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   bool loading = true;
   String? highlightId;
 
+  // Settings
+  bool isDarkMode = false;
+  String appColor = 'teal';
+  String lineColor = 'teal';
+  double lineThickness = 2.0;
+
   @override
   void initState() {
     super.initState();
     _loadData();
+    _loadSettings();
   }
 
   Future<void> _loadData() async {
@@ -40,42 +48,88 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     setState(() => loading = false);
   }
 
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      isDarkMode = prefs.getBool('is_dark_mode') ?? false;
+      appColor = prefs.getString('app_color') ?? 'teal';
+      lineColor = prefs.getString('line_color') ?? 'teal';
+      lineThickness = prefs.getDouble('line_thickness') ?? 2.0;
+    });
+  }
+
   Future<void> _saveData() async {
     final prefs = await SharedPreferences.getInstance();
     final data = jsonEncode(members.map((e) => e.toMap()).toList());
     await prefs.setString('family_data', data);
   }
 
+  Color _getColorFromName(String name) {
+    switch (name.toLowerCase()) {
+      case 'teal':
+        return Colors.teal;
+      case 'blue':
+        return Colors.blue;
+      case 'purple':
+        return Colors.purple;
+      case 'orange':
+        return Colors.orange;
+      case 'red':
+        return Colors.red;
+      case 'green':
+        return Colors.green;
+      case 'pink':
+        return Colors.pink;
+      case 'amber':
+        return Colors.amber;
+      default:
+        return Colors.teal;
+    }
+  }
+
   // ==================== ADD/EDIT ====================
   void _openAddEditScreen({FamilyMember? member}) {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (ctx) => AddEditScreen(
-        memberToEdit: member,
-        allMembers: members,
-        onSave: (savedMember) {
-          setState(() {
-            final idx =
-                members.indexWhere((m) => m.id == savedMember.id);
-            if (idx != -1) {
-              members[idx] = savedMember;
-            } else {
-              members.add(savedMember);
-            }
-          });
-          _saveData();
-        },
-        onDelete: (id) {
-          setState(() {
-            members.removeWhere((m) => m.id == id);
-          });
-          _saveData();
-        },
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => AddEditScreen(
+          memberToEdit: member,
+          allMembers: members,
+          onSave: (savedMember) {
+            setState(() {
+              final idx =
+                  members.indexWhere((m) => m.id == savedMember.id);
+              if (idx != -1) {
+                members[idx] = savedMember;
+              } else {
+                members.add(savedMember);
+              }
+            });
+            _saveData();
+          },
+          onDelete: (id) {
+            setState(() {
+              members.removeWhere((m) => m.id == id);
+            });
+            _saveData();
+          },
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
+
+  // ==================== SETTINGS ====================
+  void _openSettings() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => const SettingsScreen(),
+      ),
+    );
+    _loadSettings();
+    setState(() {});
+  }
+
   // ==================== SEARCH ====================
   void _showSearchDialog() {
     final searchCtrl = TextEditingController();
@@ -507,12 +561,20 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
           body: Center(child: CircularProgressIndicator()));
     }
 
+    final primaryColor = _getColorFromName(appColor);
+    final lineColorValue = _getColorFromName(lineColor);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mughal Barlas Family Tree'),
-        backgroundColor: Colors.teal.shade800,
+        backgroundColor: primaryColor.shade800,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: 'Settings',
+            onPressed: _openSettings,
+          ),
           IconButton(
             icon: const Icon(Icons.lock_outline),
             tooltip: 'Master Backup',
@@ -543,7 +605,11 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
               // لائنیں (CustomPaint)
               CustomPaint(
                 size: const Size(6000, 6000),
-                painter: _LinesPainter(members: members),
+                painter: _LinesPainter(
+                  members: members,
+                  lineColor: lineColorValue,
+                  lineThickness: lineThickness,
+                ),
               ),
               // باکسز (Drag & Drop)
               ...members.map((m) {
@@ -562,13 +628,11 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                           double newX = members[idx].x + dx;
                           double newY = members[idx].y + dy;
 
-                          // ============ حدود (Boundaries) ============
-                          // باکس اسکرین سے باہر نہ جائے
+                          // حدود
                           if (newX < -400) newX = -400;
                           if (newX > 5000) newX = 5000;
                           if (newY < -400) newY = -400;
                           if (newY > 5000) newY = 5000;
-                          // ============================================
 
                           members[idx] = members[idx].copyWith(
                             x: newX,
@@ -588,7 +652,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.teal.shade800,
+        backgroundColor: primaryColor.shade800,
         onPressed: () => _openAddEditScreen(),
         child: const Icon(Icons.add, color: Colors.white),
       ),
@@ -649,17 +713,23 @@ class _DraggableBoxState extends State<_DraggableBox> {
   }
 }
 
-// ==================== LINES PAINTER (سیدھی لائنیں) ====================
+// ==================== LINES PAINTER ====================
 class _LinesPainter extends CustomPainter {
   final List<FamilyMember> members;
+  final Color lineColor;
+  final double lineThickness;
 
-  _LinesPainter({required this.members});
+  _LinesPainter({
+    required this.members,
+    required this.lineColor,
+    required this.lineThickness,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.teal.shade800
-      ..strokeWidth = 2
+      ..color = lineColor
+      ..strokeWidth = lineThickness
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
@@ -695,11 +765,9 @@ class _LinesPainter extends CustomPainter {
       final path = Path();
       path.moveTo(pX, pY);
 
-      // اگر بیٹا والد کے سیدھا نیچے ہے تو سیدھی لائن
       if ((pX - cX).abs() < 10) {
         path.lineTo(cX, cY);
       } else {
-        // زاویہ دار لائن (نیچے → افقی → نیچے)
         final midY = pY + (cY - pY) / 2;
         path.lineTo(pX, midY);
         path.lineTo(cX, midY);
