@@ -31,7 +31,7 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
-  Color _getColorFromName(String name) {
+  MaterialColor _getColorFromName(String name) {
     switch (name.toLowerCase()) {
       case 'teal':
         return Colors.teal;
@@ -56,7 +56,7 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    final primaryColor = _getColorFromName(appColor);
+    final MaterialColor primaryColor = _getColorFromName(appColor);
 
     return MaterialApp(
       title: 'Mughal Barlas Family Tree',
