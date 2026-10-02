@@ -64,7 +64,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     await prefs.setString('family_data', data);
   }
 
-  Color _getColorFromName(String name) {
+  MaterialColor _getColorFromName(String name) {
     switch (name.toLowerCase()) {
       case 'teal':
         return Colors.teal;
