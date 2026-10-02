@@ -64,6 +64,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     await prefs.setString('family_data', data);
   }
 
+  // ⚠️ یہ MaterialColor واپس کرتا ہے
   MaterialColor _getColorFromName(String name) {
     switch (name.toLowerCase()) {
       case 'teal':
@@ -276,7 +277,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.teal.shade800,
+              backgroundColor: Colors.teal,
               foregroundColor: Colors.white,
             ),
             onPressed: () async {
@@ -349,7 +350,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.teal.shade800,
+              backgroundColor: Colors.teal,
               foregroundColor: Colors.white,
             ),
             onPressed: () async {
@@ -561,13 +562,13 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
           body: Center(child: CircularProgressIndicator()));
     }
 
-    final primaryColor = _getColorFromName(appColor);
-    final lineColorValue = _getColorFromName(lineColor);
+    final MaterialColor primaryColor = _getColorFromName(appColor);
+    final MaterialColor lineColorValue = _getColorFromName(lineColor);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mughal Barlas Family Tree'),
-        backgroundColor: primaryColor.shade800,
+        backgroundColor: primaryColor, // ← shade800 ہٹا دیا
         foregroundColor: Colors.white,
         actions: [
           IconButton(
@@ -602,7 +603,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
           height: 6000,
           child: Stack(
             children: [
-              // لائنیں (CustomPaint)
               CustomPaint(
                 size: const Size(6000, 6000),
                 painter: _LinesPainter(
@@ -611,7 +611,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                   lineThickness: lineThickness,
                 ),
               ),
-              // باکسز (Drag & Drop)
               ...members.map((m) {
                 return Positioned(
                   left: m.x + 500,
@@ -628,7 +627,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
                           double newX = members[idx].x + dx;
                           double newY = members[idx].y + dy;
 
-                          // حدود
                           if (newX < -400) newX = -400;
                           if (newX > 5000) newX = 5000;
                           if (newY < -400) newY = -400;
@@ -652,7 +650,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: primaryColor.shade800,
+        backgroundColor: primaryColor, // ← shade800 ہٹا دیا
         onPressed: () => _openAddEditScreen(),
         child: const Icon(Icons.add, color: Colors.white),
       ),
@@ -754,11 +752,9 @@ class _LinesPainter extends CustomPainter {
 
       if (parent.id.isEmpty) continue;
 
-      // والد کے باکس کا نچلا وسط
       final pX = parent.x + 500 + 65;
       final pY = parent.y + 500 + 60;
 
-      // بیٹے کے باکس کا اوپری وسط
       final cX = child.x + 500 + 65;
       final cY = child.y + 500;
 
