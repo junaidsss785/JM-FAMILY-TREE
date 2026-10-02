@@ -38,7 +38,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await prefs.setDouble('line_thickness', lineThickness);
   }
 
-  Color _getColorFromName(String name) {
+  MaterialColor _getColorFromName(String name) {
     switch (name.toLowerCase()) {
       case 'teal':
         return Colors.teal;
@@ -63,16 +63,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final MaterialColor primaryColor = _getColorFromName(appColor);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Settings'),
-        backgroundColor: _getColorFromName(appColor).shade800,
+        backgroundColor: primaryColor,
         foregroundColor: Colors.white,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // ========== THEME MODE ==========
           _buildSectionTitle('🎨 Theme Mode'),
           Card(
             child: Column(
@@ -98,10 +99,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
           ),
-
           const SizedBox(height: 20),
-
-          // ========== APP COLOR ==========
           _buildSectionTitle('🎨 App Color'),
           Card(
             child: Padding(
@@ -122,10 +120,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
-
           const SizedBox(height: 20),
-
-          // ========== LINE COLOR ==========
           _buildSectionTitle('📏 Line Color'),
           Card(
             child: Padding(
@@ -146,10 +141,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
-
           const SizedBox(height: 20),
-
-          // ========== LINE THICKNESS ==========
           _buildSectionTitle('📏 Line Thickness'),
           Card(
             child: Padding(
@@ -162,7 +154,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     max: 5.0,
                     divisions: 4,
                     label: '${lineThickness.toStringAsFixed(1)} px',
-                    activeColor: _getColorFromName(appColor),
+                    activeColor: primaryColor,
                     onChanged: (val) {
                       setState(() => lineThickness = val);
                       _saveSettings();
@@ -185,7 +177,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
-
           const SizedBox(height: 30),
         ],
       ),
@@ -200,7 +191,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         style: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.bold,
-          color: _getColorFromName(appColor).shade800,
+          color: _getColorFromName(appColor),
         ),
       ),
     );
