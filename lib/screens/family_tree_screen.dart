@@ -46,7 +46,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   void _centerTree() {
     // درخت کو سینٹر میں لائیں
     _transformationController.value = Matrix4.identity()
-      ..translate(-2000.0, -1500.0);
+      ..translate(-2500.0, -1500.0);
   }
 
   Future<void> _loadData() async {
