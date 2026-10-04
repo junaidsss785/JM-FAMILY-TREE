@@ -28,11 +28,25 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   String lineColor = 'teal';
   double lineThickness = 2.0;
 
+  // درخت کو سینٹر کرنے کے لیے
+  final TransformationController _transformationController =
+      TransformationController();
+
   @override
   void initState() {
     super.initState();
     _loadData();
     _loadSettings();
+    // شروع میں درخت سینٹر میں لائیں
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _centerTree();
+    });
+  }
+
+  void _centerTree() {
+    // درخت کو سینٹر میں لائیں
+    _transformationController.value = Matrix4.identity()
+      ..translate(-1500.0, -1500.0);
   }
 
   Future<void> _loadData() async {
@@ -64,7 +78,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     await prefs.setString('family_data', data);
   }
 
-  // ⚠️ یہ MaterialColor واپس کرتا ہے
   MaterialColor _getColorFromName(String name) {
     switch (name.toLowerCase()) {
       case 'teal':
@@ -568,7 +581,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mughal Barlas Family Tree'),
-        backgroundColor: primaryColor, // ← shade800 ہٹا دیا
+        backgroundColor: primaryColor,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
@@ -594,6 +607,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
         ],
       ),
       body: InteractiveViewer(
+        transformationController: _transformationController,
         constrained: false,
         boundaryMargin: const EdgeInsets.all(3000),
         minScale: 0.05,
@@ -650,7 +664,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: primaryColor, // ← shade800 ہٹا دیا
+        backgroundColor: primaryColor,
         onPressed: () => _openAddEditScreen(),
         child: const Icon(Icons.add, color: Colors.white),
       ),
