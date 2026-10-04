@@ -606,68 +606,61 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
           ),
         ],
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: primaryColor,
-            width: 3,
-          ),
-        ),
-        child: InteractiveViewer(
-          transformationController: _transformationController,
-          constrained: false,
-          boundaryMargin: const EdgeInsets.all(3000),
-          minScale: 0.05,
-          maxScale: 3.0,
-          child: SizedBox(
-            width: 6000,
-            height: 6000,
-            child: Stack(
-              children: [
-                CustomPaint(
-                  size: const Size(6000, 6000),
-                  painter: _LinesPainter(
-                    members: members,
-                    lineColor: lineColorValue,
-                    lineThickness: lineThickness,
-                  ),
+      // ✅ بارڈر ہٹا دیا — صرف InteractiveViewer
+      body: InteractiveViewer(
+        transformationController: _transformationController,
+        constrained: false,
+        boundaryMargin: const EdgeInsets.all(3000),
+        minScale: 0.05,
+        maxScale: 3.0,
+        child: SizedBox(
+          width: 6000,
+          height: 6000,
+          child: Stack(
+            children: [
+              CustomPaint(
+                size: const Size(6000, 6000),
+                painter: _LinesPainter(
+                  members: members,
+                  lineColor: lineColorValue,
+                  lineThickness: lineThickness,
                 ),
-                ...members.map((m) {
-                  return Positioned(
-                    left: m.x + 500,
-                    top: m.y + 500,
-                    child: _DraggableBox(
-                      member: m,
-                      isHighlighted: highlightId == m.id,
-                      onTap: () => _openAddEditScreen(member: m),
-                      onDragUpdate: (dx, dy) {
-                        setState(() {
-                          final idx =
-                              members.indexWhere((p) => p.id == m.id);
-                          if (idx != -1) {
-                            double newX = members[idx].x + dx;
-                            double newY = members[idx].y + dy;
+              ),
+              ...members.map((m) {
+                return Positioned(
+                  left: m.x + 500,
+                  top: m.y + 500,
+                  child: _DraggableBox(
+                    member: m,
+                    isHighlighted: highlightId == m.id,
+                    onTap: () => _openAddEditScreen(member: m),
+                    onDragUpdate: (dx, dy) {
+                      setState(() {
+                        final idx =
+                            members.indexWhere((p) => p.id == m.id);
+                        if (idx != -1) {
+                          double newX = members[idx].x + dx;
+                          double newY = members[idx].y + dy;
 
-                            if (newX < -400) newX = -400;
-                            if (newX > 5000) newX = 5000;
-                            if (newY < -400) newY = -400;
-                            if (newY > 5000) newY = 5000;
+                          if (newX < -400) newX = -400;
+                          if (newX > 5000) newX = 5000;
+                          if (newY < -400) newY = -400;
+                          if (newY > 5000) newY = 5000;
 
-                            members[idx] = members[idx].copyWith(
-                              x: newX,
-                              y: newY,
-                            );
-                          }
-                        });
-                      },
-                      onDragEnd: () {
-                        _saveData();
-                      },
-                    ),
-                  );
-                }).toList(),
-              ],
-            ),
+                          members[idx] = members[idx].copyWith(
+                            x: newX,
+                            y: newY,
+                          );
+                        }
+                      });
+                    },
+                    onDragEnd: () {
+                      _saveData();
+                    },
+                  ),
+                );
+              }).toList(),
+            ],
           ),
         ),
       ),
@@ -733,7 +726,7 @@ class _DraggableBoxState extends State<_DraggableBox> {
   }
 }
 
-// ==================== LINES PAINTER ====================
+// ==================== LINES PAINTER + BORDER ====================
 class _LinesPainter extends CustomPainter {
   final List<FamilyMember> members;
   final Color lineColor;
@@ -753,6 +746,27 @@ class _LinesPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
+    // ✅ درخت کی حدود پر بارڈر (ہلکا)
+    final borderPaint = Paint()
+      ..color = lineColor.withOpacity(0.25)
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    final leftX = 100.0;
+    final rightX = 5500.0;
+    final topY = 100.0;
+    final bottomY = 5500.0;
+
+    final borderPath = Path();
+    borderPath.moveTo(leftX, topY);
+    borderPath.lineTo(rightX, topY);
+    borderPath.lineTo(rightX, bottomY);
+    borderPath.lineTo(leftX, bottomY);
+    borderPath.close();
+
+    canvas.drawPath(borderPath, borderPaint);
+
+    // لائنیں
     for (var child in members) {
       if (child.fatherName.isEmpty ||
           child.fatherName.toLowerCase() == 'root ancestor') {
