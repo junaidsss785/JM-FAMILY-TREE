@@ -44,9 +44,9 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   }
 
   void _centerTree() {
-    // درخت کو سینٹر میں لائیں
+    // درخت کو سینٹر میں لائیں (-2600)
     _transformationController.value = Matrix4.identity()
-      ..translate(-2500.0, -1500.0);
+      ..translate(-2600.0, -1500.0);
   }
 
   Future<void> _loadData() async {
@@ -606,60 +606,68 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
           ),
         ],
       ),
-      body: InteractiveViewer(
-        transformationController: _transformationController,
-        constrained: false,
-        boundaryMargin: const EdgeInsets.all(3000),
-        minScale: 0.05,
-        maxScale: 3.0,
-        child: SizedBox(
-          width: 6000,
-          height: 6000,
-          child: Stack(
-            children: [
-              CustomPaint(
-                size: const Size(6000, 6000),
-                painter: _LinesPainter(
-                  members: members,
-                  lineColor: lineColorValue,
-                  lineThickness: lineThickness,
-                ),
-              ),
-              ...members.map((m) {
-                return Positioned(
-                  left: m.x + 500,
-                  top: m.y + 500,
-                  child: _DraggableBox(
-                    member: m,
-                    isHighlighted: highlightId == m.id,
-                    onTap: () => _openAddEditScreen(member: m),
-                    onDragUpdate: (dx, dy) {
-                      setState(() {
-                        final idx =
-                            members.indexWhere((p) => p.id == m.id);
-                        if (idx != -1) {
-                          double newX = members[idx].x + dx;
-                          double newY = members[idx].y + dy;
-
-                          if (newX < -400) newX = -400;
-                          if (newX > 5000) newX = 5000;
-                          if (newY < -400) newY = -400;
-                          if (newY > 5000) newY = 5000;
-
-                          members[idx] = members[idx].copyWith(
-                            x: newX,
-                            y: newY,
-                          );
-                        }
-                      });
-                    },
-                    onDragEnd: () {
-                      _saveData();
-                    },
+      body: Container(
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: primaryColor,
+            width: 3,
+          ),
+        ),
+        child: InteractiveViewer(
+          transformationController: _transformationController,
+          constrained: false,
+          boundaryMargin: const EdgeInsets.all(3000),
+          minScale: 0.05,
+          maxScale: 3.0,
+          child: SizedBox(
+            width: 6000,
+            height: 6000,
+            child: Stack(
+              children: [
+                CustomPaint(
+                  size: const Size(6000, 6000),
+                  painter: _LinesPainter(
+                    members: members,
+                    lineColor: lineColorValue,
+                    lineThickness: lineThickness,
                   ),
-                );
-              }).toList(),
-            ],
+                ),
+                ...members.map((m) {
+                  return Positioned(
+                    left: m.x + 500,
+                    top: m.y + 500,
+                    child: _DraggableBox(
+                      member: m,
+                      isHighlighted: highlightId == m.id,
+                      onTap: () => _openAddEditScreen(member: m),
+                      onDragUpdate: (dx, dy) {
+                        setState(() {
+                          final idx =
+                              members.indexWhere((p) => p.id == m.id);
+                          if (idx != -1) {
+                            double newX = members[idx].x + dx;
+                            double newY = members[idx].y + dy;
+
+                            if (newX < -400) newX = -400;
+                            if (newX > 5000) newX = 5000;
+                            if (newY < -400) newY = -400;
+                            if (newY > 5000) newY = 5000;
+
+                            members[idx] = members[idx].copyWith(
+                              x: newX,
+                              y: newY,
+                            );
+                          }
+                        });
+                      },
+                      onDragEnd: () {
+                        _saveData();
+                      },
+                    ),
+                  );
+                }).toList(),
+              ],
+            ),
           ),
         ),
       ),
