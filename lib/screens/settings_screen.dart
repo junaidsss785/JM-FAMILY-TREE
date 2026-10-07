@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:share_plus/share_plus.dart';
+import 'dart:convert';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -61,6 +63,296 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  // ==================== EXPORT DATA ====================
+  Future<void> _exportData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final data = prefs.getString('family_data');
+
+      if (data == null || data.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('❌ کوئی ڈیٹا نہیں ملا / No data found'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      final List decoded = jsonDecode(data);
+      final count = decoded.length;
+      final prettyJson =
+          const JsonEncoder.withIndent('  ').convert(decoded);
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('📤 Export Data'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('کل نام: $count'),
+                const SizedBox(height: 10),
+                const Text(
+                  'یہ ڈیٹا اپنی ای میل پر بھیجیں\nیا WhatsApp پر شیئر کریں',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  await Share.share(
+                    prettyJson,
+                    subject:
+                        'Mughal Barlas Family Tree Data ($count members)',
+                  );
+                },
+                icon: const Icon(Icons.share),
+                label: const Text('Share'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // ==================== SHARE APP ====================
+  Future<void> _shareApp() async {
+    await Share.share(
+      '🌳 Mughal Barlas Family Tree\n\n'
+      'یہ ایپ ہمارے خاندان کا شجرہ نسب ہے۔\n\n'
+      'بنانے والا: جنید صدیق ولد غلام صدیق\n'
+      'رابطہ: junaidjmsss786@gmail.com\n\n'
+      '❤️ محبت کے ساتھ',
+      subject: 'Mughal Barlas Family Tree',
+    );
+  }
+
+  // ==================== ABOUT DIALOG ====================
+  void _showAbout() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.info_outline, color: Colors.teal),
+            SizedBox(width: 8),
+            Text('About'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Center(
+                child: Text('🌳', style: TextStyle(fontSize: 50)),
+              ),
+              const SizedBox(height: 10),
+              const Center(
+                child: Text(
+                  'Mughal Barlas Family Tree',
+                  style: TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 5),
+              const Center(
+                child: Text(
+                  'Version 1.0.0',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Divider(),
+              const SizedBox(height: 10),
+              const Text(
+                'بنانے والا / Created by:',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, color: Colors.teal),
+              ),
+              const SizedBox(height: 5),
+              const Text('جنید صدیق ولد غلام صدیق'),
+              const Text('Junaid Siddique son of Ghulam Siddique'),
+              const SizedBox(height: 15),
+              const Text(
+                'رابطہ / Contact:',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, color: Colors.teal),
+              ),
+              const SizedBox(height: 5),
+              const SelectableText(
+                '📧 junaidjmsss786@gmail.com',
+                style: TextStyle(color: Colors.blue),
+              ),
+              const SizedBox(height: 20),
+              const Divider(),
+              const SizedBox(height: 10),
+              const Center(
+                child: Text(
+                  '© 2026 - All Rights Reserved',
+                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Center(
+                child: Text(
+                  '❤️ محبت کے ساتھ',
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== WELCOME MESSAGE ====================
+  void _showWelcome() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('🌳 خوش آمدید / Welcome'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'السلام علیکم ورحمۃ اللہ وبرکاتہ',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              const SizedBox(height: 15),
+              const Text('🌳 Mughal Barlas Family Tree'),
+              const SizedBox(height: 15),
+              const Text(
+                'یہ ہمارے خاندان کا شجرہ نسب ہے۔\n'
+                'اسے محبت اور دعاؤں کے ساتھ بنایا گیا ہے۔\n\n'
+                'اسے دیکھیں، اپنے بزرگوں کو یاد کریں،\n'
+                'اور اپنے بچوں کو بتائیں۔\n\n'
+                'ہمارا خاندان — ہماری پہچان۔',
+              ),
+              const SizedBox(height: 20),
+              const Divider(),
+              const SizedBox(height: 10),
+              const Text(
+                '📖 دعا کی اپیل:',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, color: Colors.teal),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                  'یہ ایپ\nجنید صدیق ولد غلام صدیق\nنے بنائی ہے۔'),
+              const SizedBox(height: 10),
+              const Text(
+                'ہم سب کے لیے دعا کریں:\n'
+                'اللہ ہمارے بزرگوں کی مغفرت فرمائے،\n'
+                'ہمارے والدین کو صحت و عافیت دے،\n'
+                'ہماری اولاد کو نیک بنائے،\n'
+                'اور ہمارے خاندان کو آباد رکھے۔\n\n'
+                'آمین!',
+              ),
+              const SizedBox(height: 20),
+              const Divider(),
+              const SizedBox(height: 10),
+              const Text(
+                'Assalamu Alaikum Wa Rahmatullahi Wa Barakatuh',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'This is our family tree.\n'
+                'It has been made with love and prayers.\n\n'
+                'Look at it, remember your elders,\n'
+                'and tell your children about them.\n\n'
+                'Our family — our identity.',
+              ),
+              const SizedBox(height: 15),
+              const Text(
+                '📖 A Request for Prayers:',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, color: Colors.teal),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'This app has been created by\n'
+                'Junaid Siddique son of Ghulam Siddique',
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Please pray for us all:\n'
+                'May Allah forgive our elders,\n'
+                'grant health to our parents,\n'
+                'make our children righteous,\n'
+                'and keep our family united.\n\n'
+                'Ameen!',
+              ),
+              const SizedBox(height: 20),
+              const Center(
+                child: Text(
+                  '📧 junaidjmsss786@gmail.com',
+                  style: TextStyle(fontSize: 12, color: Colors.blue),
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Center(
+                child: Text(
+                  '❤️ With Love / محبت کے ساتھ',
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final MaterialColor primaryColor = _getColorFromName(appColor);
@@ -74,7 +366,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _buildSectionTitle('🎨 Theme Mode'),
+          // ========== THEME MODE ==========
+          _buildSectionTitle('🎨 Theme Mode', primaryColor),
           Card(
             child: Column(
               children: [
@@ -99,8 +392,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
           ),
+
           const SizedBox(height: 20),
-          _buildSectionTitle('🎨 App Color'),
+
+          // ========== APP COLOR ==========
+          _buildSectionTitle('🎨 App Color', primaryColor),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -120,8 +416,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
+
           const SizedBox(height: 20),
-          _buildSectionTitle('📏 Line Color'),
+
+          // ========== LINE COLOR ==========
+          _buildSectionTitle('📏 Line Color', primaryColor),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -141,8 +440,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
+
           const SizedBox(height: 20),
-          _buildSectionTitle('📏 Line Thickness'),
+
+          // ========== LINE THICKNESS ==========
+          _buildSectionTitle('📏 Line Thickness', primaryColor),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -163,9 +465,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Text(
                     '${lineThickness.toStringAsFixed(1)} pixels',
                     style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
+                        fontSize: 14, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                   Container(
@@ -177,13 +477,80 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
+
           const SizedBox(height: 30),
+          const Divider(),
+          const SizedBox(height: 20),
+
+          // ========== DATA & SHARING ==========
+          _buildSectionTitle('📤 Data & Sharing', primaryColor),
+
+          Card(
+            child: ListTile(
+              leading: Icon(Icons.upload_file, color: primaryColor),
+              title: const Text('Export Data / ڈیٹا ایکسپورٹ'),
+              subtitle: const Text('تمام نام JSON میں محفوظ کریں'),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: _exportData,
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          Card(
+            child: ListTile(
+              leading: Icon(Icons.share, color: primaryColor),
+              title: const Text('Share App / ایپ شیئر کریں'),
+              subtitle: const Text('WhatsApp، Email وغیرہ'),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: _shareApp,
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // ========== INFO ==========
+          _buildSectionTitle('ℹ️ معلومات / Information', primaryColor),
+
+          Card(
+            child: ListTile(
+              leading: Icon(Icons.message, color: primaryColor),
+              title: const Text('Welcome Message'),
+              subtitle: const Text('خوش آمدید پیغام دیکھیں'),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: _showWelcome,
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          Card(
+            child: ListTile(
+              leading: Icon(Icons.info_outline, color: primaryColor),
+              title: const Text('About / تعارف'),
+              subtitle: const Text('ایپ کی معلومات'),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: _showAbout,
+            ),
+          ),
+
+          const SizedBox(height: 30),
+
+          const Center(
+            child: Text(
+              '🌳 Mughal Barlas Family Tree\nVersion 1.0.0\n© 2026',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+          ),
+
+          const SizedBox(height: 20),
         ],
       ),
     );
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionTitle(String title, MaterialColor color) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8, top: 8),
       child: Text(
@@ -191,7 +558,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         style: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.bold,
-          color: _getColorFromName(appColor),
+          color: color,
         ),
       ),
     );
