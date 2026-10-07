@@ -210,7 +210,8 @@ FamilyMember(id: 'p197', name: 'Mohammad Imran', fatherName: 'Shams Ud Din', bra
 FamilyMember(id: 'p198', name: 'Tahir Habib', fatherName: 'Shams Ud Din', branchColorName: 'Green', childrenIds: [], x: 900, y: 2700),
 FamilyMember(id: 'p199', name: 'Mohammad Wajahat', fatherName: 'Mohammad Idrees', branchColorName: 'Green', childrenIds: ['p215'], x: 750, y: 2700),
 FamilyMember(id: 'p200', name: 'Mohammad Amir', fatherName: 'Abdul Hafeez', branchColorName: 'Green', childrenIds: [], x: 850, y: 2700),
-    // ==================== 6. Hayaat کی شاخ (201-240) ====================
+
+  // ==================== 6. Hayaat کی شاخ (201-240) ====================
   FamilyMember(id: 'p201', name: 'Mohammad Wajid', fatherName: 'Abdul Hafeez', branchColorName: 'Green', childrenIds: [], x: 950, y: 2700),
   FamilyMember(id: 'p202', name: 'Sarmad Zia', fatherName: 'Abdul Waheed', branchColorName: 'Green', childrenIds: [], x: 1000, y: 2700),
   FamilyMember(id: 'p203', name: 'Jamal Din،', fatherName: 'Al Hajj Khair Din', branchColorName: 'Green', childrenIds: ['p182'], x: 600, y: 2400),
@@ -252,7 +253,7 @@ FamilyMember(id: 'p200', name: 'Mohammad Amir', fatherName: 'Abdul Hafeez', bran
   FamilyMember(id: 'p239', name: 'Zafar Illahi', fatherName: 'Noor Illahi', branchColorName: 'Blue', childrenIds: [], x: 700, y: 2600),
   FamilyMember(id: 'p240', name: 'Mudasir Illahi', fatherName: 'Noor Illahi', branchColorName: 'Blue', childrenIds: [], x: 800, y: 2600),
 
-  // ==================== 7. Sooba کی شاخ — باقی (241-303) ====================
+   // ==================== 7. Sooba کی شاخ — باقی (241-303) ====================
   FamilyMember(id: 'p241', name: 'Chanzeb', fatherName: 'Chan Gul', branchColorName: 'Blue', childrenIds: ['p301', 'p302', 'p303'], x: 350, y: 2500),
   FamilyMember(id: 'p242', name: 'Mohammad Sadiq', fatherName: 'Chan Gul', branchColorName: 'Blue', childrenIds: [], x: 450, y: 2500),
   FamilyMember(id: 'p243', name: 'Mehboob', fatherName: 'Chan Gul', branchColorName: 'Blue', childrenIds: [], x: 550, y: 2500),
