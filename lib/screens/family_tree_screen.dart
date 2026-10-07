@@ -37,14 +37,12 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     super.initState();
     _loadData();
     _loadSettings();
-    // شروع میں درخت سینٹر میں لائیں
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _centerTree();
     });
   }
 
   void _centerTree() {
-    // درخت کو سینٹر میں لائیں (-2600)
     _transformationController.value = Matrix4.identity()
       ..translate(-2600.0, -1500.0);
   }
@@ -60,6 +58,133 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
       await _saveData();
     }
     setState(() => loading = false);
+    // پہلی بار Welcome دکھائیں
+    _showWelcomeIfFirstTime();
+  }
+
+  Future<void> _showWelcomeIfFirstTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    final shown = prefs.getBool('welcome_shown') ?? false;
+    if (!shown) {
+      await prefs.setBool('welcome_shown', true);
+      if (mounted) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            _showWelcomeDialog();
+          }
+        });
+      }
+    }
+  }
+
+  void _showWelcomeDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('🌳 خوش آمدید / Welcome'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'السلام علیکم ورحمۃ اللہ وبرکاتہ',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              const SizedBox(height: 15),
+              const Text('🌳 Mughal Barlas Family Tree'),
+              const SizedBox(height: 15),
+              const Text(
+                'یہ ہمارے خاندان کا شجرہ نسب ہے۔\n'
+                'اسے محبت اور دعاؤں کے ساتھ بنایا گیا ہے۔\n\n'
+                'اسے دیکھیں، اپنے بزرگوں کو یاد کریں،\n'
+                'اور اپنے بچوں کو بتائیں۔\n\n'
+                'ہمارا خاندان — ہماری پہچان۔',
+              ),
+              const SizedBox(height: 20),
+              const Divider(),
+              const SizedBox(height: 10),
+              const Text(
+                '📖 دعا کی اپیل:',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, color: Colors.teal),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                  'یہ ایپ\nجنید صدیق ولد غلام صدیق\nنے بنائی ہے۔'),
+              const SizedBox(height: 10),
+              const Text(
+                'ہم سب کے لیے دعا کریں:\n'
+                'اللہ ہمارے بزرگوں کی مغفرت فرمائے،\n'
+                'ہمارے والدین کو صحت و عافیت دے،\n'
+                'ہماری اولاد کو نیک بنائے،\n'
+                'اور ہمارے خاندان کو آباد رکھے۔\n\n'
+                'آمین!',
+              ),
+              const SizedBox(height: 20),
+              const Divider(),
+              const SizedBox(height: 10),
+              const Text(
+                'Assalamu Alaikum Wa Rahmatullahi Wa Barakatuh',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'This is our family tree.\n'
+                'It has been made with love and prayers.\n\n'
+                'Look at it, remember your elders,\n'
+                'and tell your children about them.\n\n'
+                'Our family — our identity.',
+              ),
+              const SizedBox(height: 15),
+              const Text(
+                '📖 A Request for Prayers:',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, color: Colors.teal),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'This app has been created by\n'
+                'Junaid Siddique son of Ghulam Siddique',
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Please pray for us all:\n'
+                'May Allah forgive our elders,\n'
+                'grant health to our parents,\n'
+                'make our children righteous,\n'
+                'and keep our family united.\n\n'
+                'Ameen!',
+              ),
+              const SizedBox(height: 20),
+              const Center(
+                child: Text(
+                  '📧 junaidjmsss786@gmail.com',
+                  style: TextStyle(fontSize: 12, color: Colors.blue),
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Center(
+                child: Text(
+                  '❤️ With Love / محبت کے ساتھ',
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _loadSettings() async {
@@ -101,7 +226,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     }
   }
 
-  // ==================== ADD/EDIT ====================
   void _openAddEditScreen({FamilyMember? member}) {
     Navigator.push(
       context,
@@ -132,7 +256,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     );
   }
 
-  // ==================== SETTINGS ====================
   void _openSettings() async {
     await Navigator.push(
       context,
@@ -144,7 +267,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     setState(() {});
   }
 
-  // ==================== SEARCH ====================
   void _showSearchDialog() {
     final searchCtrl = TextEditingController();
     List<FamilyMember> results = [];
@@ -228,7 +350,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     );
   }
 
-  // ==================== MASTER BACKUP ====================
   Future<void> _showMasterBackupDialog() async {
     final prefs = await SharedPreferences.getInstance();
     final savedPassword = prefs.getString('master_password');
@@ -475,7 +596,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     );
   }
 
-  // ==================== PDF ====================
   Future<void> _generatePdf() async {
     final pdf = pw.Document();
 
@@ -567,7 +687,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     );
   }
 
-  // ==================== BUILD ====================
   @override
   Widget build(BuildContext context) {
     if (loading) {
@@ -606,7 +725,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
           ),
         ],
       ),
-      // ✅ بارڈر ہٹا دیا — صرف InteractiveViewer
       body: InteractiveViewer(
         transformationController: _transformationController,
         constrained: false,
@@ -673,7 +791,6 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   }
 }
 
-// ==================== DRAGGABLE BOX ====================
 class _DraggableBox extends StatefulWidget {
   final FamilyMember member;
   final bool isHighlighted;
@@ -726,7 +843,6 @@ class _DraggableBoxState extends State<_DraggableBox> {
   }
 }
 
-// ==================== LINES PAINTER + BORDER ====================
 class _LinesPainter extends CustomPainter {
   final List<FamilyMember> members;
   final Color lineColor;
@@ -746,7 +862,7 @@ class _LinesPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
-    // ✅ درخت کی حدود پر بارڈر (ہلکا)
+    // بارڈر
     final borderPaint = Paint()
       ..color = lineColor.withOpacity(0.25)
       ..strokeWidth = 2
