@@ -3,6 +3,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:file_picker/file_picker.dart';
 import 'dart:convert';
 
 class SettingsScreen extends StatefulWidget {
@@ -67,101 +68,202 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // ==================== EXPORT DATA ====================
   Future<void> _exportData() async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    final data = prefs.getString('family_data');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final data = prefs.getString('family_data');
 
-    if (data == null || data.isEmpty) {
+      if (data == null || data.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('❌ کوئی ڈیٹا نہیں ملا / No data found'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      final List decoded = jsonDecode(data);
+      final count = decoded.length;
+      final prettyJson =
+          const JsonEncoder.withIndent('  ').convert(decoded);
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('📤 Export Data'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('کل نام: $count'),
+                const SizedBox(height: 10),
+                const Text(
+                  'یہ ڈیٹا فائل میں محفوظ کر کے بھیجیں گے\n'
+                  'تاکہ کوئی نام نہ چھوٹے',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  try {
+                    final directory = await getTemporaryDirectory();
+                    final file = File(
+                        '${directory.path}/family_tree_data.json');
+                    await file.writeAsString(prettyJson);
+
+                    await Share.shareXFiles(
+                      [XFile(file.path)],
+                      subject:
+                          'Mughal Barlas Family Tree Data ($count members)',
+                      text: 'کل نام: $count',
+                    );
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('❌ Error: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                },
+                icon: const Icon(Icons.share),
+                label: const Text('Share'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('❌ کوئی ڈیٹا نہیں ملا / No data found'),
+          SnackBar(
+            content: Text('❌ Error: $e'),
             backgroundColor: Colors.red,
           ),
         );
       }
-      return;
     }
+  }
 
-    final List decoded = jsonDecode(data);
-    final count = decoded.length;
-    final prettyJson =
-        const JsonEncoder.withIndent('  ').convert(decoded);
+  // ==================== IMPORT DATA ====================
+  Future<void> _importData() async {
+    try {
+      // فائل چننے کا ڈائیلاگ
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+      );
 
-    if (mounted) {
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('📤 Export Data'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('کل نام: $count'),
-              const SizedBox(height: 10),
-              const Text(
-                'یہ ڈیٹا فائل میں محفوظ کر کے بھیجیں گے\n'
-                'تاکہ کوئی نام نہ چھوٹے',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+      if (result == null || result.files.isEmpty) {
+        return;
+      }
+
+      final file = File(result.files.first.path!);
+      final content = await file.readAsString();
+
+      // JSON validate کریں
+      final List decoded = jsonDecode(content);
+
+      if (decoded.isEmpty) {
+        throw Exception('فائل خالی ہے / File is empty');
+      }
+
+      // تصدیق کا ڈائیلاگ
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('📥 Import Data'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('کل نام: ${decoded.length}'),
+                const SizedBox(height: 10),
+                const Text(
+                  '⚠️ خبردار: موجودہ ڈیٹا ہٹ جائے گا\n'
+                  'اور یہ ڈیٹا لوڈ ہو جائے گا',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  try {
+                    // SharedPreferences میں محفوظ کریں
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setString('family_data', content);
+
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                              '✅ ${decoded.length} نام لوڈ ہو گئے / '
+                              '${decoded.length} members imported!'),
+                          backgroundColor: Colors.teal,
+                          duration: const Duration(seconds: 4),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('❌ Error: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                },
+                child: const Text('Import'),
               ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () async {
-                Navigator.pop(ctx);
-                try {
-                  // فائل میں محفوظ کریں
-                  final directory = await getTemporaryDirectory();
-                  final file = File(
-                      '${directory.path}/family_tree_data.json');
-                  await file.writeAsString(prettyJson);
-
-                  // فائل شیئر کریں
-                  await Share.shareXFiles(
-                    [XFile(file.path)],
-                    subject:
-                        'Mughal Barlas Family Tree Data ($count members)',
-                    text: 'کل نام: $count',
-                  );
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('❌ Error: $e'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                }
-              },
-              icon: const Icon(Icons.share),
-              label: const Text('Share'),
-            ),
-          ],
-        ),
-      );
-    }
-  } catch (e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('❌ Error: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
-}
-  
+
   // ==================== SHARE APP ====================
   Future<void> _shareApp() async {
     await Share.share(
@@ -507,11 +609,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // ========== DATA & SHARING ==========
           _buildSectionTitle('📤 Data & Sharing', primaryColor),
 
+          // Export Data
           Card(
             child: ListTile(
               leading: Icon(Icons.upload_file, color: primaryColor),
               title: const Text('Export Data / ڈیٹا ایکسپورٹ'),
-              subtitle: const Text('تمام نام JSON میں محفوظ کریں'),
+              subtitle: const Text('تمام نام فائل میں محفوظ کریں'),
               trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               onTap: _exportData,
             ),
@@ -519,6 +622,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 10),
 
+          // Import Data
+          Card(
+            child: ListTile(
+              leading: Icon(Icons.download, color: primaryColor),
+              title: const Text('Import Data / ڈیٹا درآمد کریں'),
+              subtitle: const Text('فائل سے ڈیٹا لوڈ کریں'),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: _importData,
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // Share App
           Card(
             child: ListTile(
               leading: Icon(Icons.share, color: primaryColor),
@@ -534,6 +651,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // ========== INFO ==========
           _buildSectionTitle('ℹ️ معلومات / Information', primaryColor),
 
+          // Welcome Message
           Card(
             child: ListTile(
               leading: Icon(Icons.message, color: primaryColor),
@@ -546,6 +664,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 10),
 
+          // About
           Card(
             child: ListTile(
               leading: Icon(Icons.info_outline, color: primaryColor),
