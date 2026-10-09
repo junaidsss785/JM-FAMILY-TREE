@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
@@ -65,81 +67,101 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // ==================== EXPORT DATA ====================
   Future<void> _exportData() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final data = prefs.getString('family_data');
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString('family_data');
 
-      if (data == null || data.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('❌ کوئی ڈیٹا نہیں ملا / No data found'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
-
-      final List decoded = jsonDecode(data);
-      final count = decoded.length;
-      final prettyJson =
-          const JsonEncoder.withIndent('  ').convert(decoded);
-
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('📤 Export Data'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('کل نام: $count'),
-                const SizedBox(height: 10),
-                const Text(
-                  'یہ ڈیٹا اپنی ای میل پر بھیجیں\nیا WhatsApp پر شیئر کریں',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal,
-                  foregroundColor: Colors.white,
-                ),
-                onPressed: () async {
-                  Navigator.pop(ctx);
-                  await Share.share(
-                    prettyJson,
-                    subject:
-                        'Mughal Barlas Family Tree Data ($count members)',
-                  );
-                },
-                icon: const Icon(Icons.share),
-                label: const Text('Share'),
-              ),
-            ],
-          ),
-        );
-      }
-    } catch (e) {
+    if (data == null || data.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ Error: $e'),
+          const SnackBar(
+            content: Text('❌ کوئی ڈیٹا نہیں ملا / No data found'),
             backgroundColor: Colors.red,
           ),
         );
       }
+      return;
+    }
+
+    final List decoded = jsonDecode(data);
+    final count = decoded.length;
+    final prettyJson =
+        const JsonEncoder.withIndent('  ').convert(decoded);
+
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('📤 Export Data'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('کل نام: $count'),
+              const SizedBox(height: 10),
+              const Text(
+                'یہ ڈیٹا فائل میں محفوظ کر کے بھیجیں گے\n'
+                'تاکہ کوئی نام نہ چھوٹے',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () async {
+                Navigator.pop(ctx);
+                try {
+                  // فائل میں محفوظ کریں
+                  final directory = await getTemporaryDirectory();
+                  final file = File(
+                      '${directory.path}/family_tree_data.json');
+                  await file.writeAsString(prettyJson);
+
+                  // فائل شیئر کریں
+                  await Share.shareXFiles(
+                    [XFile(file.path)],
+                    subject:
+                        'Mughal Barlas Family Tree Data ($count members)',
+                    text: 'کل نام: $count',
+                  );
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('❌ Error: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              icon: const Icon(Icons.share),
+              label: const Text('Share'),
+            ),
+          ],
+        ),
+      );
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
-
+}
+  
   // ==================== SHARE APP ====================
   Future<void> _shareApp() async {
     await Share.share(
